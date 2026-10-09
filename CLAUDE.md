@@ -18,6 +18,8 @@ them.
 | SG-90 micro servo (180°) | 1 |
 | 2×18650 holder in series (or laptop power, or AA) | 1 |
 | Breadboard, Dupont jumper cables | 1–2, 1 pack |
+| [Chassis](https://botland.store/chassis-for-robots/7283-chassis-rectangle-2wd-2-wheel-robot-chassis-with-dc-motor-drive-5904422335649.html) | 1 pack |
+
 
 A shared pool at the organiser bench has assorted resistors, LEDs, switches, sensor kits, spare
 boards and charged 18650 cells.
