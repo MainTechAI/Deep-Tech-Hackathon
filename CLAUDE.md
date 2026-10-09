@@ -20,6 +20,28 @@ them.
 | Breadboard, Dupont jumper cables | 1–2, 1 pack |
 | [Chassis](https://botland.store/chassis-for-robots/7283-chassis-rectangle-2wd-2-wheel-robot-chassis-with-dc-motor-drive-5904422335649.html) | 1 pack |
 
+Specification
+
+Voltage motor power supply: max. 6 V
+
+Torque: 0.8 kg*cm (0.78 Nm)
+
+Engine speed with no load: 90 +/- 10 rpm
+
+Consumption of current of motor without load: 190 mA (max. 250 mA)
+
+The current consumption of the engine with the stopped shaft 1 A
+
+Wheels:
+
+Diameter: 65 mm
+
+Width: 30 mm
+
+Plastic wheels with rubber tyres
+
+Design size: 200 x 140 x 65 mm
+
 
 A shared pool at the organiser bench has assorted resistors, LEDs, switches, sensor kits, spare
 boards and charged 18650 cells.
@@ -59,3 +81,5 @@ boards and charged 18650 cells.
 
 - Development is on macOS (Apple Silicon); the board appears as `/dev/cu.usbmodem*`.
 - Nothing has been run on real hardware yet; treat sketches as untested until they have.
+
+## upload final version [here](https://github.com/LUTESDeepTechHackathon2026/Submissions)
