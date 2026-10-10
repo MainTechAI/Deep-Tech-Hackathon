@@ -45,9 +45,9 @@ def point_inside_obstacle(x, y):
     return any(left <= x <= right and bottom <= y <= top for left, bottom, right, top in OBSTACLES)
 
 
-def blocked(x, y):
+def blocked(x, y, ignore_obstacles=False):
     left, right, bottom, top = ROOM
-    return x < left or x > right or y < bottom or y > top or point_inside_obstacle(x, y)
+    return x < left or x > right or y < bottom or y > top or (not ignore_obstacles and point_inside_obstacle(x, y))
 
 
 class RoomSimulator:
@@ -64,6 +64,7 @@ class RoomSimulator:
         self.servo_step = 8.0
         self.mode = "SCANNING"
         self.hunt_active = False
+        self.wifi_only = False
         self.manual_until = 0.0
         self.manual_direction = None
         self.last_command = ""
@@ -136,8 +137,14 @@ class RoomSimulator:
             self.mode = "SCANNING"
         elif action == "explore":
             self.hunt_active = True
+            self.wifi_only = False
             self.manual_direction = None
             self.mode = "SEARCHING"
+        elif action == "wifi_hunt":
+            self.hunt_active = True
+            self.wifi_only = True
+            self.manual_direction = None
+            self.mode = "WIFI_SEARCHING"
         elif action in {"forward", "backward", "left", "right"}:
             self.hunt_active = False
             self.manual_direction = action
@@ -149,7 +156,7 @@ class RoomSimulator:
         sign = -1 if direction == "backward" else 1
         candidate_x = self.x + math.cos(radians) * speed * sign
         candidate_y = self.y + math.sin(radians) * speed * sign
-        if not blocked(candidate_x, candidate_y):
+        if not blocked(candidate_x, candidate_y, self.wifi_only):
             self.x, self.y = candidate_x, candidate_y
             return True
         return False
@@ -160,7 +167,7 @@ class RoomSimulator:
             self.hunt_active = False
             self.mode = "TARGET_NEARBY"
             return
-        if sonar["front"] < 42:
+        if not self.wifi_only and sonar["front"] < 42:
             self.mode = "AVOIDING"
             self.heading += 58 if sonar["left"] > sonar["right"] else -58
             return
@@ -168,12 +175,12 @@ class RoomSimulator:
         # stop → sample → turn → move loop, rather than letting it drift while turning.
         candidates = []
         for trial_heading in range(0, 360, 30):
-            if self.ray_distance(trial_heading) < 48:
+            if not self.wifi_only and self.ray_distance(trial_heading) < 48:
                 continue
             radians = math.radians(trial_heading)
             trial_x = self.x + math.cos(radians) * 0.23
             trial_y = self.y + math.sin(radians) * 0.23
-            if not blocked(trial_x, trial_y):
+            if not blocked(trial_x, trial_y, self.wifi_only):
                 score, _, _ = self.signal(trial_x, trial_y)
                 candidates.append((score, trial_heading))
         if candidates:
@@ -181,9 +188,9 @@ class RoomSimulator:
             turn = angle_delta(self.heading, desired_heading)
             self.heading = (self.heading + clamp(turn, -16, 16)) % 360
             if abs(turn) > 18:
-                self.mode = "SCANNING"
+                self.mode = "WIFI_SCANNING" if self.wifi_only else "SCANNING"
                 return
-        self.mode = "SEARCHING"
+        self.mode = "WIFI_SEARCHING" if self.wifi_only else "SEARCHING"
         self.move("forward", 0.065)
 
     def manual_step(self, sonar):
@@ -218,6 +225,7 @@ class RoomSimulator:
             self.servo_step *= -1
         return {
             "source": "local-room-simulator",
+            "simulation_profile": "wifi-open-room" if self.wifi_only else "sonar-room",
             "mode": self.mode,
             "position": {"x": round(self.x, 2), "y": round(self.y, 2)},
             "heading": round(self.heading % 360, 1),

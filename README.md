@@ -33,7 +33,7 @@ The room simulation does not require Wokwi. Keep the gateway running, then start
 py -3 room_simulator.py
 ```
 
-It creates a virtual room with walls and obstacles, a player carrying the `WAYFINDER_PLAYER` hotspot, and a rover that sends the same telemetry contract as the physical device. In the console, click **START HUNT** to make the rover compare its signal readings, avoid obstacles with sonar, and stop at the simulated player.
+It creates a virtual room with walls and obstacles, a player carrying the `WAYFINDER_PLAYER` hotspot, and a rover that sends the same telemetry contract as the physical device. In the console, click **START HUNT** to use sonar and signal readings together. The **Map & Sensors** tab has a Wi-Fi-only open-room test: it visualises only RSSI samples from rover positions and can run the signal-following search without sonar geometry.
 
 `BLE check` in the console is explicitly a simulator-only proximity estimate. It is not a claim that the UNO R4 WiFi reads Wi-Fi and Bluetooth simultaneously.
 

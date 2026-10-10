@@ -15,6 +15,8 @@ def add_event(kind, message):
 def fallback(text):
     s = text.lower()
     if "stop" in s or "halt" in s: return {"action":"stop","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
+    if "wifi only" in s or "wi-fi only" in s or "signal only" in s:
+        return {"action":"wifi_hunt","distance_cm":15,"avoid_obstacles":False,"requires_confirmation":False}
     if "find" in s or "hunt" in s or "hotspot" in s: return {"action":"explore","distance_cm":15,"avoid_obstacles":True,"requires_confirmation":False}
     if "scan" in s or "look" in s: return {"action":"scan","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "back" in s or "reverse" in s: action = "backward"
