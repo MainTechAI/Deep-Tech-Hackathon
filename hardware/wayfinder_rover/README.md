@@ -28,6 +28,41 @@ keep a physical way to remove motor power during tuning.
 The backend already listens on the local network; Windows Firewall may ask to
 allow Python on private networks.
 
+## What runs where
+
+The system consists of three separate parts:
+
+| Part | Purpose |
+| --- | --- |
+| UNO R4 WiFi | Reads the fixed front sonar, joins the known phone hotspot, measures Wi-Fi RSSI, drives L298N motors and posts telemetry. |
+| `local_gateway_plain.py` on the laptop | Receives telemetry on port `8000` and stores the latest command for the rover to poll. It can use a local rule parser without an AI key. |
+| `prototype/index.html` on the laptop | Shows connection, RSSI, front sonar clearance and mission state. It sends operator requests to the backend. |
+
+The phone hotspot is both the search target and the local network. The laptop
+and rover must both join it. No password or hotspot name is stored in Git:
+those values exist only in the ignored `secrets.h` file.
+
+## Commands
+
+### Frontend
+
+- **Start hunt** — asks the rover to search for the known hotspot while using
+  the front sonar as a collision guard.
+- **Pause** — sends an immediate stop request.
+
+### Arduino Serial Monitor (115200 baud)
+
+- `c` — collect RSSI samples for ten seconds while the rover is exactly 1 m
+  from the phone hotspot.
+- `s` — print Wi-Fi connection state, filtered RSSI and current rover mode.
+
+### Backend actions
+
+The rover polls `/api/device/command`; accepted actions are `explore`,
+`wifi_hunt`, `forward`, `backward`, `left`, `right`, `scan`, and `stop`.
+Frontend language requests are converted to one of those actions by the local
+gateway. The Arduino posts telemetry to `/api/telemetry`.
+
 ## Wi-Fi signal calibration
 
 RSSI is noisy indoors. Before the first hunt, place the rover exactly one
@@ -54,3 +89,17 @@ know which side is genuinely clear; turns alternate as a conservative escape.
 There are no encoders or IMU, so the rover cannot truthfully report global
 position or build a room map. The live UI should be read as RSSI history plus
 the current forward clearance, not SLAM.
+
+## Field-test status — 10 October 2026
+
+The assembled rover has successfully connected to the phone hotspot, posted
+telemetry to the laptop, measured RSSI and returned valid fixed-sonar readings.
+The measured RSSI was about **-60 dBm** at roughly three metres and **-43 dBm**
+when the phone was close. The one-metre calibration measured **-53.7 dBm**.
+
+Autonomous movement is currently **not safe to use**. During testing, the rover
+could rotate continuously and collide with objects. The latest safe action was
+`Stop`, which telemetry confirmed. Before another autonomous hunt, validate
+motor direction, shorten motion pulses and verify each manual direction with
+wheels raised. The complete test record and recovery checklist are in
+[`TODO.md`](TODO.md).
