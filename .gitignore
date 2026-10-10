@@ -1,0 +1,8 @@
+# Python cache and abandoned local environments
+__pycache__/
+.venv/
+
+# PlatformIO build output and editor state
+wokwi-esp32/.pio/
+wokwi-esp32/.vscode/.browse.c_cpp.db*
+wokwi-esp32/.vscode/ipch/

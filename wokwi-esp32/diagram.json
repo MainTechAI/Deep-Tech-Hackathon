@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "author": "Wayfinder",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "sonar",
+      "top": -46.8,
+      "left": 297.6,
+      "attrs": { "distance": "120" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "scanServo",
+      "top": 145.2,
+      "left": 300,
+      "attrs": { "horn": "single" }
+    }
+  ],
+  "connections": [
+    [ "esp:5V", "sonar:VCC", "red", [ "v0" ] ],
+    [ "esp:GND.1", "sonar:GND", "black", [ "v0" ] ],
+    [ "esp:5", "sonar:TRIG", "orange", [ "v0" ] ],
+    [ "esp:17", "sonar:ECHO", "yellow", [ "v0" ] ],
+    [ "esp:5V", "scanServo:V+", "red", [ "v0" ] ],
+    [ "esp:GND.1", "scanServo:GND", "black", [ "v0" ] ],
+    [ "esp:18", "scanServo:PWM", "blue", [ "v0" ] ],
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ]
+  ],
+  "dependencies": {}
+}
+
