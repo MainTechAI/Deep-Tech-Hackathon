@@ -40,3 +40,12 @@ It creates a virtual room with walls and obstacles, a player carrying the `WAYFI
 ## Wokwi transport test
 
 Open `wokwi-esp32` as a VS Code folder, build with PlatformIO, then select **Wokwi: Start Simulator**. The simulated ESP32 sends sonar telemetry through the Private IoT Gateway to the local backend at port 8000. The mission console updates automatically.
+
+## Hardware projects
+
+The firmware and hardware experiments from `main` live under `hardware/`:
+
+- `hardware/ble_distance_finder/` — UNO R4 WiFi Bluetooth RSSI experiment with the LED matrix.
+- `hardware/sonar-scanner/` — HC-SR04 + SG90 scanning firmware and viewer.
+
+The Bluetooth experiment estimates proximity only from RSSI. It cannot determine bearing from one antenna, so the rover must still sample while moving or use another directional method to choose a direction.
