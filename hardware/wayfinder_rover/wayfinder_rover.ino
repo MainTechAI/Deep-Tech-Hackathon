@@ -18,6 +18,7 @@
 #include <Arduino.h>
 #include <Arduino_LED_Matrix.h>
 #include <WiFiS3.h>
+#include <math.h>
 
 #if __has_include("secrets.h")
   #include "secrets.h"
@@ -26,6 +27,18 @@
   #define WAYFINDER_WIFI_PASSWORD "CHANGE_ME"
   #define WAYFINDER_BACKEND_HOST "192.168.1.100"
   #define WAYFINDER_BACKEND_PORT 8000
+#endif
+
+// These values are deliberately separate from the hotspot credentials. They
+// can be tuned after an on-site one-metre calibration (Serial command: c).
+#ifndef WAYFINDER_RSSI_AT_ONE_METRE
+  #define WAYFINDER_RSSI_AT_ONE_METRE -45.0f
+#endif
+#ifndef WAYFINDER_PATH_LOSS_N
+  #define WAYFINDER_PATH_LOSS_N 2.5f
+#endif
+#ifndef WAYFINDER_RSSI_CALIBRATED
+  #define WAYFINDER_RSSI_CALIBRATED 0
 #endif
 
 constexpr uint8_t ENA = 8, IN1 = 9, IN2 = 10;
@@ -46,6 +59,9 @@ constexpr uint32_t AVOID_TURN_MS = 520; // Tune on the floor: intended to be abo
 constexpr uint32_t TELEMETRY_MS = 700;
 constexpr uint32_t COMMAND_MS = 850;
 constexpr uint32_t WIFI_RETRY_MS = 8000;
+constexpr uint32_t RSSI_SAMPLE_MS = 350;
+constexpr uint32_t RSSI_CALIBRATION_MS = 10000;
+constexpr float RSSI_FILTER_ALPHA = 0.20f;
 
 ArduinoLEDMatrix matrix;
 uint8_t frame[8][12] = {};
@@ -61,8 +77,17 @@ uint32_t driveEndsAt = 0;
 uint32_t lastTelemetryAt = 0;
 uint32_t lastCommandAt = 0;
 uint32_t lastWiFiAttemptAt = 0;
+uint32_t lastRssiSampleAt = 0;
 float baselineRssi = -127.0f;
 float lastRssi = -127.0f;
+float filteredRssi = NAN;
+float rssiAtOneMetre = WAYFINDER_RSSI_AT_ONE_METRE;
+float calibrationSum = 0.0f;
+uint16_t calibrationSamples = 0;
+uint32_t calibrationStartedAt = 0;
+bool rssiAvailable = false;
+bool calibrationActive = false;
+bool rssiCalibrated = WAYFINDER_RSSI_CALIBRATED;
 bool turnRightNext = true;
 String lastPlanAction = "";
 
@@ -168,11 +193,92 @@ float readDistanceCm() {
 
 bool forwardClear(float frontCm) { return frontCm >= SAFE_CM; }
 
-int currentRssi() {
-  return WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : -127;
+bool validRssi(int value) {
+  return value >= -127 && value <= -1;
 }
 
-const char* signalTrend(int rssi) {
+void finishCalibration() {
+  calibrationActive = false;
+  if (calibrationSamples < 5) {
+    Serial.println("RSSI calibration failed: not enough valid samples.");
+    return;
+  }
+  rssiAtOneMetre = calibrationSum / calibrationSamples;
+  rssiCalibrated = true;
+  Serial.print("RSSI calibration complete. RSSI at 1 m: ");
+  Serial.println(rssiAtOneMetre, 1);
+  Serial.println("Copy that number into WAYFINDER_RSSI_AT_ONE_METRE in secrets.h if you want it after reboot.");
+}
+
+void updateRssi(bool force = false) {
+  if (WiFi.status() != WL_CONNECTED) {
+    rssiAvailable = false;
+    filteredRssi = NAN;
+    calibrationActive = false;
+    return;
+  }
+  if (!force && millis() - lastRssiSampleAt < RSSI_SAMPLE_MS) return;
+  lastRssiSampleAt = millis();
+  const int raw = WiFi.RSSI();
+  if (!validRssi(raw)) return;
+
+  if (!rssiAvailable) filteredRssi = static_cast<float>(raw);
+  else filteredRssi = RSSI_FILTER_ALPHA * raw + (1.0f - RSSI_FILTER_ALPHA) * filteredRssi;
+  rssiAvailable = true;
+
+  if (calibrationActive) {
+    calibrationSum += raw;
+    ++calibrationSamples;
+    if (millis() - calibrationStartedAt >= RSSI_CALIBRATION_MS) finishCalibration();
+  }
+}
+
+float currentRssi() {
+  return rssiAvailable ? filteredRssi : -127.0f;
+}
+
+float roughWifiDistanceMetres() {
+  if (!rssiAvailable || !rssiCalibrated) return -1.0f;
+  return powf(10.0f, (rssiAtOneMetre - filteredRssi) / (10.0f * WAYFINDER_PATH_LOSS_N));
+}
+
+float targetRssiThreshold() {
+  // After calibration, stop about 1.5-2 m from the phone rather than relying
+  // on an arbitrary indoor RSSI value. Without calibration, use a conservative
+  // default that must be tuned on site.
+  return rssiCalibrated ? rssiAtOneMetre - 6.0f : TARGET_RSSI_DBM;
+}
+
+void startCalibration() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("RSSI calibration needs a Wi-Fi connection.");
+    return;
+  }
+  calibrationSum = 0.0f;
+  calibrationSamples = 0;
+  calibrationStartedAt = millis();
+  calibrationActive = true;
+  Serial.println("RSSI calibration started. Keep rover exactly 1 m from the hotspot for 10 seconds.");
+}
+
+void printStatus() {
+  Serial.print("Wi-Fi: ");
+  Serial.print(WiFi.status() == WL_CONNECTED ? "connected" : "waiting");
+  Serial.print(" | RSSI: ");
+  if (rssiAvailable) Serial.print(filteredRssi, 1); else Serial.print("n/a");
+  Serial.print(" dBm | mode: ");
+  Serial.println(modeName());
+}
+
+void handleSerial() {
+  while (Serial.available()) {
+    const char command = static_cast<char>(Serial.read());
+    if (command == 'c' || command == 'C') startCalibration();
+    if (command == 's' || command == 'S') printStatus();
+  }
+}
+
+const char* signalTrend(float rssi) {
   if (rssi <= -126 || lastRssi <= -126) return "COLLECTING";
   if (rssi > lastRssi + RSSI_IMPROVEMENT_DB) return "STRONGER";
   if (rssi < lastRssi - RSSI_IMPROVEMENT_DB) return "WEAKER";
@@ -219,7 +325,8 @@ void startHunt() {
   stopDrive();
   mode = WIFI_HUNT;
   huntStage = HUNT_BASELINE;
-  baselineRssi = static_cast<float>(currentRssi());
+  updateRssi(true);
+  baselineRssi = currentRssi();
 }
 
 void manualMove(DriveKind kind, uint32_t durationMs, float frontCm) {
@@ -267,17 +374,19 @@ void avoid(float frontCm) {
     return;
   }
   if (!driveFinished()) return;
-  baselineRssi = static_cast<float>(currentRssi());
+  updateRssi(true);
+  baselineRssi = currentRssi();
   mode = WIFI_HUNT;
   huntStage = HUNT_BASELINE;
 }
 
 void runHunt(float frontCm) {
   if (WiFi.status() != WL_CONNECTED) { mode = WAITING_WIFI; stopDrive(); return; }
-  if (currentRssi() >= TARGET_RSSI_DBM) { mode = TARGET_NEARBY; stopDrive(); return; }
+  if (currentRssi() >= targetRssiThreshold()) { mode = TARGET_NEARBY; stopDrive(); return; }
   if (frontCm < 0 || !forwardClear(frontCm)) { avoid(frontCm); return; }
   if (!driveFinished()) return;
-  const float rssi = static_cast<float>(currentRssi());
+  updateRssi(huntStage == HUNT_BASELINE || huntStage == HUNT_AFTER_STEP || huntStage == HUNT_AFTER_TURN);
+  const float rssi = currentRssi();
   if (huntStage == HUNT_BASELINE) {
     baselineRssi = rssi;
     startDrive(DRIVE_FORWARD, STEP_MS);
@@ -303,16 +412,19 @@ void runHunt(float frontCm) {
 void sendTelemetry(float frontCm) {
   if (WiFi.status() != WL_CONNECTED || millis() - lastTelemetryAt < TELEMETRY_MS) return;
   lastTelemetryAt = millis();
-  const int rssi = currentRssi();
+  const float rssi = currentRssi();
   const char* trend = signalTrend(rssi);
   WiFiClient client;
   if (!client.connect(WAYFINDER_BACKEND_HOST, WAYFINDER_BACKEND_PORT)) return;
-  char body[420];
+  char body[500];
   const bool valid = frontCm >= 0;
+  const float roughDistance = roughWifiDistanceMetres();
   snprintf(body, sizeof(body),
-    "{\"source\":\"uno-r4-wifi\",\"mode\":\"%s\",\"rssi_dbm\":%d,\"signal_trend\":\"%s\",\"target_ssid\":\"%s\",\"network\":\"%s\",\"target_nearby\":%s,\"sonar\":{\"front\":%s},\"scan\":{\"relative_angle\":0,\"distance_cm\":%s,\"valid_return\":%s}}",
+    "{\"source\":\"uno-r4-wifi\",\"mode\":\"%s\",\"rssi_dbm\":%.1f,\"signal_trend\":\"%s\",\"target_ssid\":\"%s\",\"network\":\"%s\",\"target_nearby\":%s,\"rssi_calibrated\":%s,\"rough_wifi_distance_m\":%s,\"sonar\":{\"front\":%s},\"scan\":{\"relative_angle\":0,\"distance_cm\":%s,\"valid_return\":%s}}",
     modeName(), rssi, trend, WAYFINDER_WIFI_SSID, WAYFINDER_WIFI_SSID,
     mode == TARGET_NEARBY ? "true" : "false",
+    rssiCalibrated ? "true" : "false",
+    roughDistance >= 0 ? String(roughDistance, 1).c_str() : "null",
     valid ? String(frontCm, 1).c_str() : "null",
     valid ? String(frontCm, 1).c_str() : "null",
     valid ? "true" : "false");
@@ -336,12 +448,14 @@ void setup() {
   showSymbol(DRIVE_STOP);
   Serial.begin(115200);
   delay(1500);
-  Serial.println("Wayfinder rover ready. Wi-Fi + fixed forward sonar.");
+  Serial.println("Wayfinder rover ready. Wi-Fi + fixed forward sonar. Serial: c=calibrate at 1 m, s=status.");
   ensureWiFi();
 }
 
 void loop() {
   ensureWiFi();
+  updateRssi();
+  handleSerial();
   const float frontCm = readDistanceCm();
   pollCommand(frontCm);
   if (mode == WIFI_HUNT || mode == AVOIDING) runHunt(frontCm);

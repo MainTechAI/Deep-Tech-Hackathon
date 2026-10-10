@@ -28,6 +28,21 @@ keep a physical way to remove motor power during tuning.
 The backend already listens on the local network; Windows Firewall may ask to
 allow Python on private networks.
 
+## Wi-Fi signal calibration
+
+RSSI is noisy indoors. Before the first hunt, place the rover exactly one
+metre from the phone that shares the known hotspot. Open Serial Monitor at
+115200 baud and send `c`; keep both devices still for ten seconds. The firmware
+filters the readings and prints the measured one-metre RSSI. Put that number
+into `WAYFINDER_RSSI_AT_ONE_METRE` in `secrets.h` and set
+`WAYFINDER_RSSI_CALIBRATED` to `1` to retain it after reboot.
+Send `s` to print the current connection, filtered RSSI, and rover mode.
+
+The telemetry field `rough_wifi_distance_m` is only a rough signal estimate.
+Walls, people and phone orientation affect it substantially, so autonomous
+movement relies on whether the filtered signal gets stronger after each short
+step, not on that number as a precise distance.
+
 ## Behaviour
 
 `Find WAYFINDER_PLAYER` or `Go to the hotspot` starts the hunt. The rover takes
