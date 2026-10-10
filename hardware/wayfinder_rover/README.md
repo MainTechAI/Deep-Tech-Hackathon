@@ -10,7 +10,7 @@ Bluetooth is not required.
 | --- | --- |
 | L298N left motor | ENA D8, IN1 D9, IN2 D10 |
 | L298N right motor | ENB D13, IN3 D11, IN4 D12 |
-| Fixed HC-SR04 | TRIG D6, ECHO D7 |
+| Fixed HC-SR04 | TRIG D3, ECHO D2 |
 
 The L298N motor supply must be suitable for the motors. Join its ground to UNO
 GND. Do not power motors from the UNO's 5 V pin. Start with wheels lifted and

@@ -31,9 +31,8 @@ After calibration, copy the printed `RSSI_AT_1M` value into
 ## Hardware test status
 
 The sketch builds for `arduino:renesas_uno:unor4wifi` (34% flash, 29% RAM).
-On the currently connected board, USB Serial and Wi-Fi communication work and
-the ESP32-S3 connectivity firmware reports `0.6.0`, but `BLE.begin()` fails.
-The ArduinoBLE project requires ESP32-S3 firmware `0.2.0` or later, so the next
-recovery step is to reflash the official connectivity firmware with Arduino IDE:
-**Tools → Firmware Updater → UNO R4 WiFi → Check Updates → Install**, then
-physically unplug and reconnect the board before uploading this sketch again.
+On the tested board, USB Serial and Wi-Fi communication work and the ESP32-S3
+connectivity firmware reports the current version `0.6.0`, but `BLE.begin()`
+fails. Reinstalling the same connectivity firmware is not expected to resolve
+that issue. This BLE sketch is retained as an experiment; the active rover uses
+Wi-Fi hotspot RSSI instead.

@@ -5,7 +5,7 @@
   Motor driver: L298N
     ENA D8, IN1 D9, IN2 D10  (left motor)
     ENB D13, IN3 D11, IN4 D12 (right motor)
-  Fixed HC-SR04: TRIG D6, ECHO D7
+  Fixed HC-SR04: TRIG D3, ECHO D2
 
   Copy secrets.h.example to secrets.h and set the hotspot credentials and the
   laptop's IP address. The laptop and rover must join the same hotspot.
@@ -43,7 +43,7 @@
 
 constexpr uint8_t ENA = 8, IN1 = 9, IN2 = 10;
 constexpr uint8_t ENB = 13, IN3 = 11, IN4 = 12;
-constexpr uint8_t TRIG_PIN = 6, ECHO_PIN = 7;
+constexpr uint8_t TRIG_PIN = 3, ECHO_PIN = 2;
 
 constexpr bool INVERT_LEFT = true;
 constexpr bool INVERT_RIGHT = true;
