@@ -45,7 +45,8 @@ Open `wokwi-esp32` as a VS Code folder, build with PlatformIO, then select **Wok
 
 The firmware and hardware experiments from `main` live under `hardware/`:
 
-- `hardware/ble_distance_finder/` — UNO R4 WiFi Bluetooth RSSI experiment with the LED matrix.
-- `hardware/sonar-scanner/` — HC-SR04 + SG90 scanning firmware and viewer.
+- `hardware/wayfinder_rover/` — **active firmware**: Wi-Fi hotspot signal hunt, L298N motors and a fixed forward HC-SR04.
+- `hardware/ble_distance_finder/` — isolated Bluetooth RSSI experiment; it is not part of the rover mission.
+- `hardware/sonar-scanner/` — stationary HC-SR04 + SG90 scanning experiment and viewer.
 
 The Bluetooth experiment estimates proximity only from RSSI. It cannot determine bearing from one antenna, so the rover must still sample while moving or use another directional method to choose a direction.

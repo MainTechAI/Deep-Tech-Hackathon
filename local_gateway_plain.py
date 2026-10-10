@@ -17,7 +17,7 @@ def fallback(text):
     if "stop" in s or "halt" in s: return {"action":"stop","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "wifi only" in s or "wi-fi only" in s or "signal only" in s:
         return {"action":"wifi_hunt","distance_cm":15,"avoid_obstacles":False,"requires_confirmation":False}
-    if "find" in s or "hunt" in s or "hotspot" in s: return {"action":"explore","distance_cm":15,"avoid_obstacles":True,"requires_confirmation":False}
+    if "find" in s or "hunt" in s or "hotspot" in s or "go to" in s or "come" in s: return {"action":"explore","distance_cm":15,"avoid_obstacles":True,"requires_confirmation":False}
     if "scan" in s or "look" in s: return {"action":"scan","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "back" in s or "reverse" in s: action = "backward"
     elif "left" in s: action = "left"
@@ -82,5 +82,5 @@ class Handler(BaseHTTPRequestHandler):
         else: self.send_json({"error":"not found"},404)
 
 if __name__ == "__main__":
-    print("WAYFINDER plain gateway listening on http://127.0.0.1:8000")
-    ThreadingHTTPServer(("127.0.0.1",8000), Handler).serve_forever()
+    print("WAYFINDER plain gateway listening on http://0.0.0.0:8000")
+    ThreadingHTTPServer(("0.0.0.0",8000), Handler).serve_forever()
