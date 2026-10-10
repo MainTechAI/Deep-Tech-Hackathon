@@ -1,12 +1,12 @@
 // Obstacle-avoiding robot: manual (with collision protection) + autonomous mode
-// L298N:   ENA D8, IN1 D9, IN2 D10 (left) | ENB D13, IN3 D11, IN4 D12 (right)
-// HC-SR04: Trig D6, Echo D7
+// L298N:   ENA D5, IN1 D9, IN2 D10 (left) | ENB D6, IN3 D11, IN4 D12 (right)
+// HC-SR04: Trig D3, Echo D2
 // Serial Monitor 115200, "Newline": w/a/s/d move | x stop | m AUTO/MANUAL
 
 #include "Arduino_LED_Matrix.h"
 
-const int ENA = 8,  IN1 = 9,  IN2 = 10;
-const int ENB = 13, IN3 = 11, IN4 = 12;
+const int ENA = 5,  IN1 = 9,  IN2 = 10;
+const int ENB = 6,  IN3 = 11, IN4 = 12;
 const int TRIG_PIN = 3, ECHO_PIN = 2;
 
 const float SAFE_CM  = 15.0;  // manual: blocks forward if closer

@@ -49,37 +49,32 @@ boards and charged 18650 cells.
 ## Constraints that shape the code
 
 - **The board is an Uno R4 WiFi (Renesas RA4M1, ARM Cortex-M4), not an ATmega328P.** AVR-specific
-  code and tooling (`avr-gcc`, `avrdude`, `DDRB`/`PORTB`, `TCCR0A`) does not apply. Use the
-  "Arduino UNO R4 Boards" core (PlatformIO board `uno_r4_wifi`).
-- **Drive motors are steppers, not DC motors.** There is no L298N and no PWM speed control; each
-  motor is four GPIO pins sequenced through a ULN2003. With AccelStepper the 28BYJ-48 pin order is
-  IN1, IN3, IN2, IN4, in `HALF4WIRE` mode.
-- **The robot is slow.** The 28BYJ-48 tops out around 15 RPM (about 1000 half-steps/s at 5 V), so
-  roughly 5 cm/s on 65 mm wheels. Turns take seconds, not milliseconds.
-- **Never block the loop.** Steppers only move while the code is stepping them, so no `delay()`
-  and keep the `pulseIn` timeout short (about 6000 µs). Use `millis()` state machines.
-- **Power:** 2×18650 in series is about 7.4 V, but the steppers and servo are 5 V parts. Battery
-  goes to VIN; steppers and servo run from 5 V. USB power alone is likely to brown out.
-- The SG-90 is presumably for sweeping the HC-SR04 left and right to pick the clearer direction.
+  code and tooling (`avr-gcc`, `avrdude`, `DDRB`/`PORTB`, `TCCR0A`) does not apply. Build with
+  `arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi <sketch dir>`.
+- **The assembled rover uses the chassis DC motors through an L298N**, not the 28BYJ-48 steppers
+  from the PDF. Active firmware: `hardware/wayfinder_rover/`.
+- **PWM on the R4 is only on D3, D5, D6, D9, D10, D11.** The L298N enable pins must be on those.
+- **Motors keep running through blocking calls.** Timed moves overrun if the loop blocks (HTTP,
+  long `pulseIn`), so only talk to the backend while the rover is stopped.
+- No encoders or IMU: distances and turn angles are open-loop timings at a chosen PWM duty.
+- The sonar is fixed facing forward; the rover turns its body to look around.
 
 ## Pin plan
 
 | Part | Arduino pins |
 |---|---|
-| Left ULN2003 IN1–IN4 | 2, 3, 4, 5 |
-| Right ULN2003 IN1–IN4 | 6, 7, 8, 9 |
-| Servo signal | 10 |
-| HC-SR04 TRIG / ECHO | 11 / 12 |
+| L298N left motor | ENA D5 (PWM), IN1 D9, IN2 D10 |
+| L298N right motor | ENB D6 (PWM), IN3 D11, IN4 D12 |
+| HC-SR04 TRIG / ECHO | D3 / D2 |
 
 ## Open questions
 
-- Whether the chassis kit's mounts and wheels fit the 28BYJ-48 shafts, or whether it ships with DC
-  gear motors that we have no driver for.
-- Whether the board's 5 V rail copes with two steppers plus the servo when fed from VIN.
+- `DRIVE_DUTY`, `TURN_DUTY` and the step and turn timings are unmeasured starting values.
 
 ## Working notes
 
 - Development is on macOS (Apple Silicon); the board appears as `/dev/cu.usbmodem*`.
-- Nothing has been run on real hardware yet; treat sketches as untested until they have.
+- `hardware/wayfinder_rover/secrets.h` is git-ignored (hotspot credentials, backend address, RSSI
+  calibration). Without it the firmware builds with placeholder values and cannot join Wi-Fi.
 
 ## upload final version [here](https://github.com/LUTESDeepTechHackathon2026/Submissions)

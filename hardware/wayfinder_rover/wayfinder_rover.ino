@@ -11,7 +11,7 @@
   laptop's IP address. The laptop and rover must join the same hotspot.
 
   Safety: a missing or invalid sonar reading is UNKNOWN, never clear space.
-  The rover will not drive forward without a valid front reading above SAFE_CM.
+  The rover will not drive forward without a valid front reading above safeCm.
   There are no wheel encoders or IMU, so this firmware does not claim to know
   its absolute position or build a physical map.
 */
@@ -41,27 +41,50 @@
   #define WAYFINDER_RSSI_CALIBRATED 0
 #endif
 
-constexpr uint8_t ENA = 8, IN1 = 9, IN2 = 10;
-constexpr uint8_t ENB = 13, IN3 = 11, IN4 = 12;
+// ENA/ENB must be on PWM pins (UNO R4: D3, D5, D6, D9, D10, D11) for speed control.
+constexpr uint8_t ENA = 5, IN1 = 9, IN2 = 10;
+constexpr uint8_t ENB = 6, IN3 = 11, IN4 = 12;
 constexpr uint8_t TRIG_PIN = 3, ECHO_PIN = 2;
 
 constexpr bool INVERT_LEFT = true;
 constexpr bool INVERT_RIGHT = true;
 constexpr bool SWAP_SIDES = false;
 
-constexpr float SAFE_CM = 22.0f;
-constexpr float TARGET_RSSI_DBM = -50.0f;
+// Starting values, not measured. Raise a duty if the wheels hum without turning.
+constexpr uint8_t KICK_DUTY = 200;   // Brief push to get the wheels turning at low duty.
+constexpr uint32_t KICK_MS = 40;
+constexpr uint8_t TURN_DUTY = 170;
+
+constexpr float OPEN_CM = 350.0f;  // Reported when nothing is in sonar range.
 constexpr float RSSI_IMPROVEMENT_DB = 1.5f;
-constexpr uint32_t STEP_MS = 340;
+constexpr float RSSI_WORSE_DB = 4.0f;  // Turn when this far below the best reading on a heading.
 constexpr uint32_t BACK_MS = 360;
-constexpr uint32_t TURN_MS = 260;  // Tune on the floor: intended to be about 30 degrees.
-constexpr uint32_t AVOID_TURN_MS = 520; // Tune on the floor: intended to be about 70-90 degrees.
+constexpr uint32_t AVOID_TURN_MS = 300; // Tune on the floor: intended to be about 70 degrees.
+
+// Dead reckoning for the map. There are no encoders, so the pose is integrated
+// from how long each move ran, and it drifts. The turn rate and start-up lag
+// are fitted to two floor observations (130 ms -> ~20 degrees, 520 ms -> ~120
+// degrees). The forward speed is from a measured 1 s run.
+constexpr float FORWARD_CM_PER_S = 30.0f;  // Measured: 30 cm in a 1 s run at duty 110.
+constexpr float TURN_DEG_PER_S = 256.0f;
+constexpr float MOVE_LAG_S = 0.052f;  // Time before the wheels are up to speed.
 constexpr uint32_t TELEMETRY_MS = 700;
 constexpr uint32_t COMMAND_MS = 850;
 constexpr uint32_t WIFI_RETRY_MS = 8000;
-constexpr uint32_t RSSI_SAMPLE_MS = 350;
+constexpr uint32_t RSSI_SAMPLE_MS = 150;
 constexpr uint32_t RSSI_CALIBRATION_MS = 10000;
-constexpr float RSSI_FILTER_ALPHA = 0.20f;
+constexpr float RSSI_FILTER_ALPHA = 0.30f;
+
+// Live settings. These are the defaults; the console sliders override them
+// through the "tuning" object in the gateway's command response.
+constexpr uint8_t DEFAULT_DRIVE_DUTY = 110;
+uint8_t driveDuty = DEFAULT_DRIVE_DUTY;  // Slow cruise so RSSI can keep up with the motion.
+uint32_t stepMs = 340;                   // One forward step.
+uint32_t turnMs = 130;                   // Observed on the floor: about 20 degrees.
+uint32_t settleMs = 700;                 // Stand still after each move so RSSI can settle.
+float safeCm = 25.0f;                    // Avoid obstacles closer than this.
+float leftTrim = 0.98f, rightTrim = 1.0f;  // Per-wheel balance so the rover drives straight.
+float targetRssi = -50.0f;               // Found at this signal or stronger: about 50 cm in the test room.
 
 ArduinoLEDMatrix matrix;
 uint8_t frame[8][12] = {};
@@ -74,6 +97,11 @@ RoverMode mode = IDLE;
 DriveKind activeDrive = DRIVE_STOP;
 HuntStage huntStage = HUNT_BASELINE;
 uint32_t driveEndsAt = 0;
+uint32_t driveStartedAt = 0;
+uint32_t driveStoppedAt = 0;
+float poseX = 0.0f, poseY = 0.0f;  // Metres from where the rover started.
+float poseHeading = 90.0f;         // Degrees, counter-clockwise; 90 points up the map.
+String lastResetToken = "";
 uint32_t lastTelemetryAt = 0;
 uint32_t lastCommandAt = 0;
 uint32_t lastWiFiAttemptAt = 0;
@@ -88,8 +116,7 @@ uint32_t calibrationStartedAt = 0;
 bool rssiAvailable = false;
 bool calibrationActive = false;
 bool rssiCalibrated = WAYFINDER_RSSI_CALIBRATED;
-bool turnRightNext = true;
-String lastPlanAction = "";
+long lastCommandId = -1;
 
 const char* modeName() {
   switch (mode) {
@@ -126,26 +153,43 @@ void showSymbol(DriveKind kind) {
   matrix.renderBitmap(frame, 8, 12);
 }
 
-void setMotor(uint8_t enable, uint8_t forwardPin, uint8_t reversePin, int direction) {
+void setMotor(uint8_t enable, uint8_t forwardPin, uint8_t reversePin, int direction, uint8_t duty) {
   if (direction > 0) {
-    digitalWrite(forwardPin, HIGH); digitalWrite(reversePin, LOW); digitalWrite(enable, HIGH);
+    digitalWrite(forwardPin, HIGH); digitalWrite(reversePin, LOW); analogWrite(enable, duty);
   } else if (direction < 0) {
-    digitalWrite(forwardPin, LOW); digitalWrite(reversePin, HIGH); digitalWrite(enable, HIGH);
+    digitalWrite(forwardPin, LOW); digitalWrite(reversePin, HIGH); analogWrite(enable, duty);
   } else {
-    digitalWrite(forwardPin, LOW); digitalWrite(reversePin, LOW); digitalWrite(enable, LOW);
+    digitalWrite(forwardPin, LOW); digitalWrite(reversePin, LOW); analogWrite(enable, 0);
   }
 }
 
-void driveRaw(int left, int right) {
+void driveRaw(int left, int right, uint8_t duty = 0) {
   if (SWAP_SIDES) { int swap = left; left = right; right = swap; }
   if (INVERT_LEFT) left = -left;
   if (INVERT_RIGHT) right = -right;
-  setMotor(ENA, IN1, IN2, left);
-  setMotor(ENB, IN3, IN4, right);
+  setMotor(ENA, IN1, IN2, left, static_cast<uint8_t>(duty * leftTrim));
+  setMotor(ENB, IN3, IN4, right, static_cast<uint8_t>(duty * rightTrim));
+}
+
+// Adds the move that just ended to the estimated pose.
+void integratePose() {
+  if (activeDrive == DRIVE_STOP) return;
+  const float seconds = max(0.0f, (millis() - driveStartedAt) / 1000.0f - MOVE_LAG_S);
+  if (activeDrive == DRIVE_LEFT) poseHeading += TURN_DEG_PER_S * seconds;
+  else if (activeDrive == DRIVE_RIGHT) poseHeading -= TURN_DEG_PER_S * seconds;
+  else {
+    // Speed is assumed proportional to duty, which is only roughly true.
+    const float metres = FORWARD_CM_PER_S * driveDuty / DEFAULT_DRIVE_DUTY * seconds / 100.0f * (activeDrive == DRIVE_FORWARD ? 1.0f : -1.0f);
+    poseX += metres * cosf(poseHeading * DEG_TO_RAD);
+    poseY += metres * sinf(poseHeading * DEG_TO_RAD);
+  }
+  poseHeading = fmodf(poseHeading + 360.0f, 360.0f);
 }
 
 void stopDrive() {
   driveRaw(0, 0);
+  if (activeDrive != DRIVE_STOP) driveStoppedAt = millis();
+  integratePose();
   activeDrive = DRIVE_STOP;
   driveEndsAt = 0;
   showSymbol(DRIVE_STOP);
@@ -157,8 +201,15 @@ void startDrive(DriveKind kind, uint32_t durationMs) {
   if (kind == DRIVE_BACKWARD) { left = -1; right = -1; }
   if (kind == DRIVE_LEFT) { left = -1; right = 1; }
   if (kind == DRIVE_RIGHT) { left = 1; right = -1; }
-  driveRaw(left, right);
+  const bool turning = kind == DRIVE_LEFT || kind == DRIVE_RIGHT;
+  integratePose();
+  if (!turning && KICK_DUTY > driveDuty) {
+    driveRaw(left, right, KICK_DUTY);
+    delay(KICK_MS);
+  }
+  driveRaw(left, right, turning ? TURN_DUTY : driveDuty);
   activeDrive = kind;
+  driveStartedAt = millis();
   driveEndsAt = millis() + durationMs;
   showSymbol(kind);
 }
@@ -172,16 +223,37 @@ bool driveFinished() {
   return false;
 }
 
-float readDistanceCm() {
+// One ping. A sensor that answers but hears no echo means open space, so it
+// returns OPEN_CM. Only a sensor that never raises ECHO (unplugged, unpowered)
+// returns -1.
+float pingCm() {
+  uint32_t startedAt = micros();
+  while (digitalRead(ECHO_PIN) == HIGH) {  // Previous ping still waiting for its echo.
+    if (micros() - startedAt > 60000) return OPEN_CM;
+  }
+  digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  startedAt = micros();
+  while (digitalRead(ECHO_PIN) == LOW) {
+    if (micros() - startedAt > 5000) return -1.0f;
+  }
+  const uint32_t roseAt = micros();
+  while (digitalRead(ECHO_PIN) == HIGH) {
+    if (micros() - roseAt > 25000) return OPEN_CM;
+  }
+  return min((micros() - roseAt) * 0.0343f / 2.0f, OPEN_CM);
+}
+
+// quick: return the first valid ping instead of a median of three, so a timed
+// move is not held up while the motors are running.
+float readDistanceCm(bool quick = false) {
   float readings[3];
   uint8_t count = 0;
   for (uint8_t i = 0; i < 3; ++i) {
-    digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-    const uint32_t width = pulseIn(ECHO_PIN, HIGH, 25000);
-    const float value = width ? width * 0.0343f / 2.0f : -1.0f;
-    if (value >= 3.0f && value <= 350.0f) readings[count++] = value;
+    const float value = pingCm();
+    if (value >= 3.0f) readings[count++] = value;
+    if (quick && count) return readings[0];
     delay(8);
   }
   if (!count) return -1.0f;
@@ -191,7 +263,7 @@ float readDistanceCm() {
   return readings[count / 2];
 }
 
-bool forwardClear(float frontCm) { return frontCm >= SAFE_CM; }
+bool forwardClear(float frontCm) { return frontCm >= safeCm; }
 
 bool validRssi(int value) {
   return value >= -127 && value <= -1;
@@ -243,10 +315,9 @@ float roughWifiDistanceMetres() {
 }
 
 float targetRssiThreshold() {
-  // After calibration, stop about 1.5-2 m from the phone rather than relying
-  // on an arbitrary indoor RSSI value. Without calibration, use a conservative
-  // default that must be tuned on site.
-  return rssiCalibrated ? rssiAtOneMetre - 6.0f : TARGET_RSSI_DBM;
+  // Team decision: the target counts as found at -50 dBm or stronger, which
+  // was about 50 cm from the phone in the test room.
+  return targetRssi;
 }
 
 void startCalibration() {
@@ -286,7 +357,10 @@ const char* signalTrend(float rssi) {
 }
 
 void ensureWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED) {
+    if (mode == WAITING_WIFI) mode = IDLE;
+    return;
+  }
   if (millis() - lastWiFiAttemptAt < WIFI_RETRY_MS) return;
   lastWiFiAttemptAt = millis();
   mode = WAITING_WIFI;
@@ -308,16 +382,64 @@ bool httpGetCommand(String& response) {
   const int body = response.indexOf("\r\n\r\n");
   if (body < 0) return false;
   response.remove(0, body + 4);
-  return response.indexOf("\"action\"") >= 0;
+  return response.indexOf("\"command_id\"") >= 0;
 }
 
 String jsonAction(const String& body) {
-  const String key = "\"action\":\"";
+  // The gateway's JSON has a space after the colon, so do not match a fixed string.
+  const String key = "\"action\"";
   const int start = body.indexOf(key);
   if (start < 0) return "";
-  const int valueStart = start + key.length();
+  const int valueStart = body.indexOf('"', body.indexOf(':', start + key.length())) + 1;
+  if (valueStart <= 0) return "";
   const int end = body.indexOf('"', valueStart);
   return end < 0 ? "" : body.substring(valueStart, end);
+}
+
+// The gateway increments command_id on every operator command, so the same
+// action can be sent twice in a row.
+long jsonCommandId(const String& body) {
+  const String key = "\"command_id\"";
+  const int start = body.indexOf(key);
+  if (start < 0) return 0;
+  return body.substring(body.indexOf(':', start + key.length()) + 1).toInt();
+}
+
+bool jsonNumber(const String& body, const char* name, float& out) {
+  const String key = String("\"") + name + "\"";
+  const int start = body.indexOf(key);
+  if (start < 0) return false;
+  out = body.substring(body.indexOf(':', start + key.length()) + 1).toFloat();
+  return true;
+}
+
+void applyTuning(const String& body) {
+  float v;
+  if (jsonNumber(body, "drive_duty", v)) driveDuty = constrain(static_cast<int>(v), 60, 255);
+  if (jsonNumber(body, "step_ms", v)) stepMs = constrain(static_cast<int>(v), 50, 2000);
+  if (jsonNumber(body, "settle_ms", v)) settleMs = constrain(static_cast<int>(v), 0, 5000);
+  if (jsonNumber(body, "turn_ms", v)) turnMs = constrain(static_cast<int>(v), 30, 1000);
+  if (jsonNumber(body, "safe_cm", v)) safeCm = constrain(v, 5.0f, 100.0f);
+  if (jsonNumber(body, "target_rssi", v)) targetRssi = constrain(v, -90.0f, -20.0f);
+  if (jsonNumber(body, "left_trim_pct", v)) {
+    // Above 100 the right wheel is slowed instead, since duty cannot exceed full power.
+    v = constrain(v, 70.0f, 130.0f);
+    leftTrim = min(1.0f, v / 100.0f);
+    rightTrim = min(1.0f, 100.0f / v);
+  }
+}
+
+// The console's reset clears the map, so the pose estimate restarts with it.
+void applyResetToken(const String& body) {
+  const String key = "\"reset_token\"";
+  const int start = body.indexOf(key);
+  if (start < 0) return;
+  const int valueStart = body.indexOf(':', start + key.length()) + 1;
+  int end = body.indexOf(',', valueStart);
+  if (end < 0) end = body.indexOf('}', valueStart);
+  const String token = body.substring(valueStart, end);
+  if (lastResetToken.length() && token != lastResetToken) { poseX = 0.0f; poseY = 0.0f; poseHeading = 90.0f; }
+  lastResetToken = token;
 }
 
 void startHunt() {
@@ -339,23 +461,32 @@ void manualMove(DriveKind kind, uint32_t durationMs, float frontCm) {
   startDrive(kind, durationMs);
 }
 
-void applyPlan(const String& action, float frontCm) {
-  if (action == lastPlanAction) return;
-  lastPlanAction = action;
+void applyPlan(const String& action, long commandId, float frontCm) {
+  // The first poll after a reboot only records the id, so a command left over
+  // in the gateway is not replayed.
+  const bool firstPoll = lastCommandId < 0;
+  if (commandId == lastCommandId) return;
+  lastCommandId = commandId;
+  if (firstPoll) return;
   if (action == "stop") { mode = IDLE; stopDrive(); return; }
   if (action == "explore" || action == "wifi_hunt") { startHunt(); return; }
   if (action == "scan") { mode = IDLE; stopDrive(); return; }
-  if (action == "forward") { manualMove(DRIVE_FORWARD, STEP_MS, frontCm); return; }
-  if (action == "backward") { manualMove(DRIVE_BACKWARD, STEP_MS, frontCm); return; }
-  if (action == "left") { manualMove(DRIVE_LEFT, TURN_MS, frontCm); return; }
-  if (action == "right") { manualMove(DRIVE_RIGHT, TURN_MS, frontCm); return; }
+  if (action == "forward") { manualMove(DRIVE_FORWARD, stepMs, frontCm); return; }
+  // Calibration run: measure the distance covered to set FORWARD_CM_PER_S.
+  if (action == "forward_1s") { manualMove(DRIVE_FORWARD, 1000, frontCm); return; }
+  if (action == "backward") { manualMove(DRIVE_BACKWARD, stepMs, frontCm); return; }
+  if (action == "left") { manualMove(DRIVE_LEFT, turnMs, frontCm); return; }
+  if (action == "right") { manualMove(DRIVE_RIGHT, turnMs, frontCm); return; }
 }
 
 void pollCommand(float frontCm) {
   if (millis() - lastCommandAt < COMMAND_MS || WiFi.status() != WL_CONNECTED) return;
   lastCommandAt = millis();
   String response;
-  if (httpGetCommand(response)) applyPlan(jsonAction(response), frontCm);
+  if (!httpGetCommand(response)) return;
+  applyResetToken(response);
+  applyTuning(response);
+  applyPlan(jsonAction(response), jsonCommandId(response), frontCm);
 }
 
 void avoid(float frontCm) {
@@ -368,8 +499,8 @@ void avoid(float frontCm) {
   }
   if (!driveFinished()) return;
   if (huntStage == HUNT_AFTER_BACK) {
-    startDrive(turnRightNext ? DRIVE_RIGHT : DRIVE_LEFT, AVOID_TURN_MS);
-    turnRightNext = !turnRightNext;
+    // Always the same way: alternating left and right undid the previous turn.
+    startDrive(DRIVE_RIGHT, AVOID_TURN_MS);
     huntStage = HUNT_AFTER_TURN;
     return;
   }
@@ -385,23 +516,26 @@ void runHunt(float frontCm) {
   if (currentRssi() >= targetRssiThreshold()) { mode = TARGET_NEARBY; stopDrive(); return; }
   if (frontCm < 0 || !forwardClear(frontCm)) { avoid(frontCm); return; }
   if (!driveFinished()) return;
+  if (millis() - driveStoppedAt < settleMs) return;
   updateRssi(huntStage == HUNT_BASELINE || huntStage == HUNT_AFTER_STEP || huntStage == HUNT_AFTER_TURN);
   const float rssi = currentRssi();
   if (huntStage == HUNT_BASELINE) {
     baselineRssi = rssi;
-    startDrive(DRIVE_FORWARD, STEP_MS);
+    startDrive(DRIVE_FORWARD, stepMs);
     huntStage = HUNT_AFTER_STEP;
   } else if (huntStage == HUNT_AFTER_STEP) {
-    if (rssi >= baselineRssi + RSSI_IMPROVEMENT_DB) {
-      baselineRssi = rssi;
-      startDrive(DRIVE_FORWARD, STEP_MS);
+    // Keep the heading unless the signal is clearly weaker than the best seen
+    // on it. RSSI jitters by a few dB, so demanding an improvement after every
+    // step made the rover reverse almost every time.
+    if (rssi > baselineRssi) baselineRssi = rssi;
+    if (rssi >= baselineRssi - RSSI_WORSE_DB) {
+      startDrive(DRIVE_FORWARD, stepMs);
     } else {
-      startDrive(DRIVE_BACKWARD, BACK_MS);
-      huntStage = HUNT_AFTER_BACK;
+      startDrive(DRIVE_RIGHT, turnMs);
+      huntStage = HUNT_AFTER_TURN;
     }
   } else if (huntStage == HUNT_AFTER_BACK) {
-    startDrive(turnRightNext ? DRIVE_RIGHT : DRIVE_LEFT, TURN_MS);
-    turnRightNext = !turnRightNext;
+    startDrive(DRIVE_RIGHT, AVOID_TURN_MS);
     huntStage = HUNT_AFTER_TURN;
   } else {
     baselineRssi = rssi;
@@ -416,18 +550,20 @@ void sendTelemetry(float frontCm) {
   const char* trend = signalTrend(rssi);
   WiFiClient client;
   if (!client.connect(WAYFINDER_BACKEND_HOST, WAYFINDER_BACKEND_PORT)) return;
-  char body[500];
+  char body[640];
   const bool valid = frontCm >= 0;
+  const bool echo = valid && frontCm < OPEN_CM;  // Open space is not a map point.
   const float roughDistance = roughWifiDistanceMetres();
   snprintf(body, sizeof(body),
-    "{\"source\":\"uno-r4-wifi\",\"mode\":\"%s\",\"rssi_dbm\":%.1f,\"signal_trend\":\"%s\",\"target_ssid\":\"%s\",\"network\":\"%s\",\"target_nearby\":%s,\"rssi_calibrated\":%s,\"rough_wifi_distance_m\":%s,\"sonar\":{\"front\":%s},\"scan\":{\"relative_angle\":0,\"distance_cm\":%s,\"valid_return\":%s}}",
+    "{\"source\":\"uno-r4-wifi\",\"mode\":\"%s\",\"rssi_dbm\":%.1f,\"signal_trend\":\"%s\",\"target_ssid\":\"%s\",\"network\":\"%s\",\"target_nearby\":%s,\"rssi_calibrated\":%s,\"rough_wifi_distance_m\":%s,\"position\":{\"x\":%.2f,\"y\":%.2f},\"heading\":%.0f,\"sonar\":{\"front\":%s},\"scan\":{\"relative_angle\":0,\"distance_cm\":%s,\"valid_return\":%s}}",
     modeName(), rssi, trend, WAYFINDER_WIFI_SSID, WAYFINDER_WIFI_SSID,
     mode == TARGET_NEARBY ? "true" : "false",
     rssiCalibrated ? "true" : "false",
     roughDistance >= 0 ? String(roughDistance, 1).c_str() : "null",
+    poseX, poseY, poseHeading,
     valid ? String(frontCm, 1).c_str() : "null",
-    valid ? String(frontCm, 1).c_str() : "null",
-    valid ? "true" : "false");
+    echo ? String(frontCm, 1).c_str() : "null",
+    echo ? "true" : "false");
   client.print("POST /api/telemetry HTTP/1.1\r\nHost: ");
   client.print(WAYFINDER_BACKEND_HOST);
   client.print("\r\nContent-Type: application/json\r\nContent-Length: ");
@@ -456,8 +592,14 @@ void loop() {
   ensureWiFi();
   updateRssi();
   handleSerial();
-  const float frontCm = readDistanceCm();
-  pollCommand(frontCm);
+  // HTTP calls block for up to a second and the motors keep running through
+  // them, so the backend is only contacted while the rover is stopped.
+  const bool moving = !driveFinished();
+  const float frontCm = readDistanceCm(moving);
+  if (!moving) {
+    pollCommand(frontCm);
+    if (activeDrive == DRIVE_STOP) sendTelemetry(frontCm);
+  }
   if (mode == WIFI_HUNT || mode == AVOIDING) runHunt(frontCm);
   else if (mode == MANUAL) {
     if (activeDrive == DRIVE_FORWARD && !forwardClear(frontCm)) {
@@ -465,5 +607,4 @@ void loop() {
       stopDrive();
     } else driveFinished();
   }
-  sendTelemetry(frontCm);
 }

@@ -17,7 +17,21 @@
 - The latest explicit `Stop` command was confirmed by rover telemetry before
   this TODO was written.
 
-## Current blocker
+## Status after the 10 October evening session
+
+The spinning described below is resolved on the bench and floor. The causes
+found were a broken D10 -> IN2 jumper (left wheel had no forward drive), enable
+pins without PWM, timed moves overrunning during HTTP calls, and the firmware
+not matching the gateway's JSON, so console commands were ignored.
+
+Measured or observed on the floor: 30 cm in a 1 s forward run at duty 110; a
+130 ms turn is about 20 degrees; left wheel at 98 % runs nearly straight.
+
+Still open: the hunt can arc because it always turns right when the signal
+drops; the wheel trim was tuned at the faster speed; the map is dead-reckoned
+and drifts; the live tuning sliders have not been tried on the rover.
+
+## Earlier blocker (kept for the record)
 
 During an autonomous hunt the rover can spin very quickly, keep rotating, and
 hit objects. This is not acceptable behaviour. The rover must stay stopped
@@ -27,9 +41,16 @@ The likely causes are:
 
 1. One motor direction does not match the assumed `INVERT_LEFT` /
    `INVERT_RIGHT` configuration, so a commanded forward move becomes a spin.
-2. The L298N enable pins are currently driven at full power; the present step
-   and turn timings are too long for the assembled chassis.
-3. A single fixed forward sonar cannot tell which side is clear after an
+2. The L298N enable pins were on D8/D13, which have no PWM on the UNO R4, so
+   the motors ran at full power. **Changed, untested on the rover:** ENA is now
+   D5 and ENB is D6, and the firmware drives them with `DRIVE_DUTY` /
+   `TURN_DUTY`. The duties and the step and turn timings are unmeasured
+   starting values.
+3. Timed moves overran: the motors kept running while the loop was blocked in
+   HTTP calls (up to about a second), so a 260 ms turn could last far longer.
+   **Changed, untested on the rover:** the backend is now only contacted while
+   the rover is stopped.
+4. A single fixed forward sonar cannot tell which side is clear after an
    obstacle. Autonomous avoidance must use very small, validated turns.
 
 ## Safe recovery plan
@@ -64,6 +85,8 @@ The likely causes are:
 - `diagnostics/diagnostics.ino` — safe, no-motor Wi-Fi and sonar probe.
 - `../movement_reference/movement_reference.ino` — original L298N movement
   reference.
+- `../motor_bench/motor_bench.ino` — tethered serial test: one timed move per
+  line at a chosen PWM duty, for checking direction and tuning duty and timing.
 
 ## Do not publish
 

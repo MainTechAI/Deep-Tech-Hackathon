@@ -17,6 +17,7 @@ def fallback(text):
     if "stop" in s or "halt" in s: return {"action":"stop","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "wifi only" in s or "wi-fi only" in s or "signal only" in s:
         return {"action":"wifi_hunt","distance_cm":15,"avoid_obstacles":False,"requires_confirmation":False}
+    if "test" in s or "calib" in s: return {"action":"forward_1s","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "find" in s or "hunt" in s or "hotspot" in s or "go to" in s or "come" in s: return {"action":"explore","distance_cm":15,"avoid_obstacles":True,"requires_confirmation":False}
     if "scan" in s or "look" in s: return {"action":"scan","distance_cm":0,"avoid_obstacles":True,"requires_confirmation":False}
     if "back" in s or "reverse" in s: action = "backward"
@@ -33,6 +34,8 @@ def make_plan(text):
     req = urllib.request.Request("https://api.deepseek.com/chat/completions", data=json.dumps(body).encode(), headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"})
     with urllib.request.urlopen(req, timeout=20) as res: return json.loads(json.loads(res.read())["choices"][0]["message"]["content"])
 
+TUNING_KEYS = ("drive_duty", "step_ms", "settle_ms", "turn_ms", "safe_cm", "left_trim_pct", "target_rssi")
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_): pass
     def send_json(self, value, status=200):
@@ -43,12 +46,20 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/state":
             with LOCK: self.send_json(STATE.copy())
         elif self.path == "/api/device/command":
-            self.send_json({"plan": STATE.get("plan"), "reset_token": STATE.get("reset_token", 0), "requested_profile": STATE.get("requested_profile", "sonar-room")})
+            self.send_json({"plan": STATE.get("plan"), "command_id": STATE.get("command_id", 0), "tuning": STATE.get("tuning", {}), "reset_token": STATE.get("reset_token", 0), "requested_profile": STATE.get("requested_profile", "sonar-room")})
         else: self.send_json({"error":"not found"},404)
     def do_POST(self):
         length = int(self.headers.get("Content-Length",0)); data = json.loads(self.rfile.read(length) or b"{}")
         if self.path == "/api/command":
-            plan = make_plan(data.get("text","")); add_event("COMMAND",data.get("text","")); STATE["plan"] = plan; STATE["mode"] = str(plan.get("action", "IDLE")).upper(); self.send_json({"plan":plan,"requires_confirmation":plan.get("requires_confirmation",True)})
+            plan = make_plan(data.get("text","")); add_event("COMMAND",data.get("text","")); STATE["plan"] = plan; STATE["command_id"] = int(datetime.now().timestamp() * 1000) % 2000000000; STATE["mode"] = str(plan.get("action", "IDLE")).upper(); self.send_json({"plan":plan,"requires_confirmation":plan.get("requires_confirmation",True)})
+        elif self.path == "/api/tuning":
+            # Live rover settings from the console sliders; the rover reads them with each command poll.
+            with LOCK:
+                tuning = dict(STATE.get("tuning") or {})
+                for key in TUNING_KEYS:
+                    if isinstance(data.get(key), (int, float)): tuning[key] = data[key]
+                STATE["tuning"] = tuning
+            self.send_json({"ok": True, "tuning": tuning})
         elif self.path == "/api/reset":
             with LOCK:
                 MAP_POINTS.clear()

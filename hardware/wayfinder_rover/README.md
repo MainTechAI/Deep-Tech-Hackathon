@@ -8,8 +8,8 @@ Bluetooth is not required.
 
 | Module | UNO R4 WiFi pins |
 | --- | --- |
-| L298N left motor | ENA D8, IN1 D9, IN2 D10 |
-| L298N right motor | ENB D13, IN3 D11, IN4 D12 |
+| L298N left motor | ENA D5 (PWM), IN1 D9, IN2 D10 |
+| L298N right motor | ENB D6 (PWM), IN3 D11, IN4 D12 |
 | Fixed HC-SR04 | TRIG D3, ECHO D2 |
 
 The L298N motor supply must be suitable for the motors. Join its ground to UNO
@@ -50,6 +50,18 @@ those values exist only in the ignored `secrets.h` file.
   the front sonar as a collision guard.
 - **Pause** — sends an immediate stop request.
 
+### Manual control and live tuning
+
+The Dashboard's **Manual control** card has a direction pad (one move per
+press, repeats allowed), a stop button and a **1 s run** that drives forward
+for one second so the speed can be measured.
+
+The sliders under the pad change rover settings without re-uploading: drive
+power, forward step, pause after each move, turn length, obstacle distance,
+left wheel power and the "found" signal level. The console posts them to
+`/api/tuning`; the rover reads them with its next command poll. They are held
+by the gateway, so they reset to the firmware defaults when it restarts.
+
 ### Arduino Serial Monitor (115200 baud)
 
 - `c` — collect RSSI samples for ten seconds while the rover is exactly 1 m
@@ -59,7 +71,9 @@ those values exist only in the ignored `secrets.h` file.
 ### Backend actions
 
 The rover polls `/api/device/command`; accepted actions are `explore`,
-`wifi_hunt`, `forward`, `backward`, `left`, `right`, `scan`, and `stop`.
+`wifi_hunt`, `forward`, `forward_1s`, `backward`, `left`, `right`, `scan`, and
+`stop`. Each operator command gets a new `command_id`; the rover acts when the
+id changes, so the same action can be sent twice.
 Frontend language requests are converted to one of those actions by the local
 gateway. The Arduino posts telemetry to `/api/telemetry`.
 
@@ -82,13 +96,19 @@ step, not on that number as a precise distance.
 
 `Find WAYFINDER_PLAYER` or `Go to the hotspot` starts the hunt. The rover takes
 short forward steps, keeps a direction when RSSI improves, backs up and turns
-when it worsens, and stops near a strong signal. A front obstacle or missing
-sonar reading prevents forward motion. With one fixed front sonar, it cannot
+when it worsens, and stops near a strong signal. A front obstacle prevents
+forward motion. No echo counts as open space (reported as 350 cm), so a surface
+that deflects the ping, such as a wall at a steep angle, can be missed. Only a
+sonar that does not respond at all blocks forward motion. With one fixed front sonar, it cannot
 know which side is genuinely clear; turns alternate as a conservative escape.
 
-There are no encoders or IMU, so the rover cannot truthfully report global
-position or build a room map. The live UI should be read as RSSI history plus
-the current forward clearance, not SLAM.
+There are no encoders or IMU. The rover estimates its position and heading by
+dead reckoning: it adds up how long each move ran at `FORWARD_CM_PER_S` and
+`TURN_DEG_PER_S`, and sends that with every sonar return so the console can
+draw a map while it drives. Those two rates are estimates, wheel slip is not
+seen, and the error grows with every move, so read the map as a rough sketch,
+not SLAM. The console's reset button clears the map and restarts the estimate
+at the rover's current spot. `LEFT_TRIM` / `RIGHT_TRIM` balance the wheels.
 
 ## Field-test status — 10 October 2026
 
