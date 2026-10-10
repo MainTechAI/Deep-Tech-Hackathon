@@ -1,6 +1,7 @@
 """Local Wayfinder room simulation. Uses only the Python standard library."""
 import json
 import math
+import random
 import time
 import urllib.error
 import urllib.request
@@ -53,8 +54,39 @@ def blocked(x, y, ignore_obstacles=False):
 class RoomSimulator:
     def __init__(self):
         self.reset_token = None
+        self.profile = "sonar-room"
         self.started_at = time.monotonic()
         self.reset_pose()
+
+    def configure_world(self, profile):
+        """Create a new fair test field on every reset."""
+        global OBSTACLES
+        self.profile = profile if profile in {"sonar-room", "wifi-open-room"} else "sonar-room"
+        rng = random.SystemRandom()
+        # Keep the target away from the fixed launch point, then make each reset a
+        # genuinely different hunt rather than replaying a predetermined route.
+        while True:
+            x, y = rng.uniform(-3.2, 3.6), rng.uniform(-2.45, 2.55)
+            if math.hypot(x + 3.45, y + 2.05) > 3.4:
+                PLAYER.update({"x": round(x, 2), "y": round(y, 2)})
+                break
+        if self.profile == "wifi-open-room":
+            OBSTACLES[:] = []
+            return
+        obstacles = []
+        for _ in range(4):
+            for _attempt in range(100):
+                width, height = rng.uniform(0.6, 1.4), rng.uniform(0.55, 1.6)
+                left = rng.uniform(-3.7, 3.7 - width)
+                bottom = rng.uniform(-2.7, 2.7 - height)
+                right, top = left + width, bottom + height
+                near_start = left - .4 <= -3.45 <= right + .4 and bottom - .4 <= -2.05 <= top + .4
+                near_target = left - .45 <= PLAYER["x"] <= right + .45 and bottom - .45 <= PLAYER["y"] <= top + .45
+                overlaps = any(not (right + .35 < a or left - .35 > c or top + .35 < b or bottom - .35 > d) for a, b, c, d in obstacles)
+                if not near_start and not near_target and not overlaps:
+                    obstacles.append((round(left, 2), round(bottom, 2), round(right, 2), round(top, 2)))
+                    break
+        OBSTACLES[:] = obstacles
 
     def reset_pose(self):
         """Restore the rover to its physical starting pose in the test room."""
@@ -120,6 +152,7 @@ class RoomSimulator:
         reset_token = packet.get("reset_token")
         if reset_token != self.reset_token:
             self.reset_token = reset_token
+            self.configure_world(packet.get("requested_profile", "sonar-room"))
             self.reset_pose()
         plan = packet.get("plan") or {}
         signature = json.dumps(plan, sort_keys=True)
@@ -143,6 +176,7 @@ class RoomSimulator:
         elif action == "wifi_hunt":
             self.hunt_active = True
             self.wifi_only = True
+            self.profile = "wifi-open-room"
             self.manual_direction = None
             self.mode = "WIFI_SEARCHING"
         elif action in {"forward", "backward", "left", "right"}:
@@ -225,7 +259,7 @@ class RoomSimulator:
             self.servo_step *= -1
         return {
             "source": "local-room-simulator",
-            "simulation_profile": "wifi-open-room" if self.wifi_only else "sonar-room",
+            "simulation_profile": self.profile,
             "mode": self.mode,
             "position": {"x": round(self.x, 2), "y": round(self.y, 2)},
             "heading": round(self.heading % 360, 1),

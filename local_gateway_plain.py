@@ -43,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/state":
             with LOCK: self.send_json(STATE.copy())
         elif self.path == "/api/device/command":
-            self.send_json({"plan": STATE.get("plan"), "reset_token": STATE.get("reset_token", 0)})
+            self.send_json({"plan": STATE.get("plan"), "reset_token": STATE.get("reset_token", 0), "requested_profile": STATE.get("requested_profile", "sonar-room")})
         else: self.send_json({"error":"not found"},404)
     def do_POST(self):
         length = int(self.headers.get("Content-Length",0)); data = json.loads(self.rfile.read(length) or b"{}")
@@ -52,7 +52,8 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/reset":
             with LOCK:
                 MAP_POINTS.clear()
-                STATE.update({"connected": False, "mode": "IDLE", "position": None, "heading": None, "sonar": {"left": None, "front": None, "right": None}, "points": [], "plan": None, "reset_token": int(datetime.now().timestamp() * 1000)})
+                profile = data.get("profile") if data.get("profile") in {"sonar-room", "wifi-open-room"} else "sonar-room"
+                STATE.update({"connected": False, "mode": "IDLE", "position": None, "heading": None, "sonar": {"left": None, "front": None, "right": None}, "points": [], "plan": None, "requested_profile": profile, "reset_token": int(datetime.now().timestamp() * 1000)})
             add_event("SYSTEM", "Mission state and sonar map reset")
             self.send_json({"ok": True})
         elif self.path == "/api/telemetry":
