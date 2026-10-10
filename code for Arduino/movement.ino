@@ -7,7 +7,7 @@
 
 const int ENA = 8,  IN1 = 9,  IN2 = 10;
 const int ENB = 13, IN3 = 11, IN4 = 12;
-const int TRIG_PIN = 6, ECHO_PIN = 7;
+const int TRIG_PIN = 3, ECHO_PIN = 2;
 
 const float SAFE_CM  = 15.0;  // manual: blocks forward if closer
 const float AVOID_CM = 20.0;  // auto: start avoidance if closer
