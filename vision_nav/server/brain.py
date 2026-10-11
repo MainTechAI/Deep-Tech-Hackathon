@@ -75,7 +75,8 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
-        self.last_drive = (0, 0)      # last real drive command, to find the way back when lost
+        self.last_drive = (0, 0)
+        self.recover_until = 0.0      # last real drive command, to find the way back when lost
         self.turn_state = None        # running turn pulse: th0, dir, t_end, until
         self.wrong_turns = 0
         self.aligning = False         # turning on the spot until within ALIGN_DEG
@@ -183,8 +184,8 @@ class Brain:
         if free_to > 0:
             self.grid.add_free_ray(sx, sy, sx + free_to * math.cos(a), sy + free_to * math.sin(a))
         turning = abs(d.get("l", 0) - d.get("r", 0)) > 30   # the cone sweeps everything around
-        if dist < C.OBSTACLE_RANGE and not turning:
-            close = dist < C.STOP_CM + 5          # right in front: certainly real
+        close = dist < C.STOP_CM + 5              # right in front: certainly real, always mapped
+        if (dist < C.OBSTACLE_RANGE or close) and not turning:
             if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a), force=close):
                 self.log(f"obstacle mapped at {dist:.0f} cm ahead")
 
@@ -266,14 +267,20 @@ class Brain:
             # just lost (e.g. drove out of the camera view): undo the last motion for a moment
             lost_for = now() - self.robot.t
             l, r = self.last_drive
-            if lost_for < 1.3 and l + r != 0:
+            if lost_for < 3.0 and l + r != 0:
                 self.status = "lost - coming back into view"
+                if now() < self.recover_until:
+                    return None                      # pulse running / waiting for the camera
+                self.recover_until = now() + 0.55
                 return ("drive", -40, -40, 250) if l + r > 0 else ("drive", 40, 40, 250)
             self.status = "robot not visible"
             return ("stop",)
         if now() - self.robot.t > C.MOTION_POSE_AGE:
             self.status = "waiting for camera"     # slow camera: stop and look, don't drive blind
             return ("stop",)
+        back_in = self._back_into_arena()
+        if back_in is not False:
+            return back_in
 
         target = self._mission_target()
         if target is None:
@@ -382,19 +389,49 @@ class Brain:
             cx, cy = bx, by
         return p[-1]
 
+    def _back_into_arena(self):
+        """Robot outside the arena (but still seen): pulse straight back in - forwards if the
+        arena centre is ahead of it, backwards if it is behind - with pauses for the camera.
+        Returns False when the robot is inside."""
+        x, y, W, H = self.robot.x, self.robot.y, self.grid.w_cm, self.grid.h_cm
+        if 3 < x < W - 3 and 3 < y < H - 3:
+            return False
+        self.status = "outside the arena - coming back"
+        if now() < self.recover_until:
+            return None
+        self.recover_until = now() + 0.55
+        to_centre = math.degrees(math.atan2(H / 2 - y, W / 2 - x))
+        ahead = abs(G.wrap(to_centre - self.robot.th)) < 90
+        return ("drive", 40, 40, 250) if ahead else ("drive", -40, -40, 250)
+
     def _room_behind(self, d=25.0):
         a = math.radians(self.robot.th)
         bx, by = self.robot.x - d * math.cos(a), self.robot.y - d * math.sin(a)
         return 5 < bx < self.grid.w_cm - 5 and 5 < by < self.grid.h_cm - 5
 
+    def _next_index(self, p):
+        """Index of the next path corner the robot still has to reach. A corner counts as
+        passed when the robot is close to it OR already beyond it along its segment - so a
+        corner missed to the side doesn't make the robot turn back for it."""
+        rx, ry = self.robot.x, self.robot.y
+        k = 1
+        while k < len(p) - 1:
+            (ax, ay), (bx, by) = p[k - 1], p[k]
+            vx, vy = bx - ax, by - ay
+            L2 = vx * vx + vy * vy
+            u = ((rx - ax) * vx + (ry - ay) * vy) / L2 if L2 > 1e-6 else 1.0
+            if u >= 1.0 or math.hypot(bx - rx, by - ry) < C.CORNER_SKIP:
+                k += 1
+            else:
+                break
+        return min(k, len(p) - 1)
+
     def _remaining_path(self, target):
         """The current route from where the robot is now, ending at the current target."""
         p = self.path
-        i = next((k for k in range(1, len(p))
-                  if math.hypot(p[k][0] - self.robot.x, p[k][1] - self.robot.y) > 6), None)
-        if i is None:
+        if len(p) < 2:
             return None
-        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[i:]]
+        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[self._next_index(p):]]
         if math.hypot(rest[-1][0] - target[0], rest[-1][1] - target[1]) > 10:
             return None      # the target moved (follow mode): take the new route
         return rest
@@ -402,10 +439,7 @@ class Brain:
     def _next_corner(self):
         """Polyline mode: aim straight at the next corner of the planned path."""
         p = self.path
-        for q in p[1:]:
-            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > 6:
-                return q
-        return p[-1]
+        return p[self._next_index(p)] if len(p) > 1 else p[-1]
 
     def _follow_path(self, dist_goal):
         lx, ly = self._next_corner() if C.STEER_GAIN <= 0 else self._lookahead()
@@ -415,10 +449,21 @@ class Brain:
         # until within ALIGN_DEG, then drive straight again
         ts = self.turn_state
         settled = ts is None or now() >= ts["until"]
-        if abs(err) > C.TURN_IN_PLACE_DEG:
+        # near the arena edge a wide tolerance lets a straight run drift outside: be strict there
+        x, y, W, H = self.robot.x, self.robot.y, self.grid.w_cm, self.grid.h_cm
+        near_edge = min(x, W - x, y, H - y) < C.FENCE_CM + 10
+        turn_lim = min(C.TURN_IN_PLACE_DEG, C.EDGE_TURN_DEG) if near_edge else C.TURN_IN_PLACE_DEG
+        align_lim = min(C.ALIGN_DEG, C.EDGE_TURN_DEG / 2) if near_edge else C.ALIGN_DEG
+        a = math.radians(self.robot.th)
+        ax, ay = x + 12 * math.cos(a), y + 12 * math.sin(a)
+        heading_out = not (5 < ax < W - 5 and 5 < ay < H - 5)   # about to leave the arena
+        if abs(err) > turn_lim or heading_out:
             self.aligning = True
         if self.aligning:
-            if not (settled and abs(err) <= C.ALIGN_DEG):
+            # good enough: within the align limit, or the last pulse overshot past the target
+            # direction and we're within the stop-and-turn limit - no endless fine-tuning
+            overshot = ts is not None and (err > 0) != (ts["dir"] > 0) and abs(err) <= turn_lim
+            if heading_out or not (settled and (abs(err) <= align_lim or overshot)):
                 return self._turn_pulse(err)
             self.aligning = False
         self.turn_state = None
@@ -468,10 +513,11 @@ class Brain:
             self.calib = None
             return ("stop",)
         if c["step"] == "spin":
-            if t < 0.6:
-                return ("drive", C.TURN_SPEED, -C.TURN_SPEED, C.DRIVE_MS)   # spin right
-            if t < 1.2:
-                return ("stop",)
+            if not c.get("sent"):                    # one short spin right: no half-turn ambiguity
+                c["sent"] = True
+                return ("drive", C.TURN_SPEED, -C.TURN_SPEED, 200)
+            if t < 1.0:
+                return None
             dth = G.wrap(self.robot.th - c["start"][2])
             if abs(dth) < 5:
                 self.log("calibration: robot did not turn - check power / MIN_PWM")
@@ -479,7 +525,7 @@ class Brain:
                 return ("stop",)
             # spinning right should decrease the angle (CCW-positive frame)
             self.turn_sign = 1 if dth < 0 else -1
-            self.log(f"calibration: spin right gave {dth:+.0f} deg in 0.6 s"
+            self.log(f"calibration: spin right gave {dth:+.0f} deg in 0.2 s"
                      + ("" if self.turn_sign == 1 else " (reversed! turn sign flipped)"))
             c.update(step="drive", t0=now(), start=(self.robot.x, self.robot.y, self.robot.th))
             return ("stop",)

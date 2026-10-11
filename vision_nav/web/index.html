@@ -433,14 +433,18 @@ const cv = $('map'), ctx = cv.getContext('2d');
 let PAD = 28;
 let scale = 1, aw = 300, ah = 200;
 function resize() {
+  // Height depends only on the width, the arena's proportions and the window - never on the
+  // previous scale or on the side column's height (both fed back into each other: jumping map).
   const w = cv.clientWidth;
-  const h = Math.round(w * (ah + 2 * PAD / scale) / (aw + 2 * PAD / scale)) || w * 0.66;
   const dpr = window.devicePixelRatio || 1;
-  // on wide screens keep the whole map in the first viewport; on phones use the natural aspect
-  const side = document.querySelector('aside').offsetHeight - 120;
-  const cap = innerWidth > 960 ? Math.max(320, innerHeight - 230, side) : innerHeight * 0.8;
-  cv.width = w * dpr; cv.height = Math.round(Math.min(h, cap) * dpr);
-  cv.style.height = (cv.height / dpr) + 'px';
+  const natural = w * ah / aw + 2 * PAD;
+  const cap = innerWidth > 960 ? Math.max(320, innerHeight - 230) : innerHeight * 0.8;
+  const cssH = Math.round(Math.min(natural, cap));
+  const W = Math.round(w * dpr), H = Math.round(cssH * dpr);
+  if (cv.width !== W || cv.height !== H) {      // touching the size every frame causes reflows
+    cv.width = W; cv.height = H;
+    cv.style.height = cssH + 'px';
+  }
 }
 function fit() {
   const W = cv.width, H = cv.height, dpr = window.devicePixelRatio || 1;
@@ -455,6 +459,9 @@ function render() {
   if (S) { aw = S.arena.w; ah = S.arena.h; }
   PAD = innerWidth < 600 ? 22 : 28;
   resize(); const dpr = fit();
+  // the canvas is no longer re-created every frame: reset drawing state explicitly
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   // field
@@ -601,7 +608,10 @@ function updatePanel() {
   $('bFollow').classList.toggle('on', m.type === 'follow');
   $('bLock').classList.toggle('on', S.arena.locked);
   $('bLock').textContent = S.arena.locked ? 'Unlock camera' : 'Lock camera';
-  if (document.activeElement !== $('aw') && document.activeElement !== $('ah')) { $('aw').value = S.arena.w; $('ah').value = S.arena.h; }
+  // don't overwrite numbers the user is typing (clicking Apply blurs the field first)
+  if (!arenaDirty && document.activeElement !== $('aw') && document.activeElement !== $('ah')) {
+    $('aw').value = S.arena.w; $('ah').value = S.arena.h;
+  }
   const log = S.events.join('\n');
   if (log !== lastLog) { $('log').textContent = log; $('log').scrollTop = 1e9; lastLog = log; }
   $('arenaMode').textContent = S.arena.auto
@@ -656,8 +666,17 @@ function renderTune() {
     inp.disabled = !control;
   });
 }
+let arenaDirty = false;
+$('aw').addEventListener('input', () => arenaDirty = true);
+$('ah').addEventListener('input', () => arenaDirty = true);
+[$('aw'), $('ah')].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') $('bArena').click(); }));
 $('bArenaAuto').onclick = () => send({type: 'arena_auto'});
-$('bArena').onclick = () => send({type: 'arena', w: +$('aw').value, h: +$('ah').value});
+$('bArena').onclick = () => {
+  const w = +$('aw').value, h = +$('ah').value;
+  if (!(w >= 30 && h >= 30)) return;
+  send({type: 'arena', w, h});
+  arenaDirty = false;
+};
 
 // joystick + keyboard -> {type:'joy'} at 10 Hz while active
 const pad = $('pad'), knob = $('knob'), R = 70, K = 25, M = R - K;

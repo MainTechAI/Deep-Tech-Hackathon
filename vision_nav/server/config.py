@@ -57,10 +57,11 @@ DRIVE_MS = 400                  # every drive command expires after this (robot 
 CRUISE = 55                     # % forward speed
 CRUISE_MIN = 35                 # % near the goal
 TURN_SPEED = 45                 # % for turning on the spot
-TURN_IN_PLACE_DEG = 15          # heading error above which the robot turns in pulses (else: steers gently)
+TURN_IN_PLACE_DEG = 25          # heading error above which the robot turns in pulses (else: steers gently)
 STEER_MAX = 0.4                 # while driving, wheel difference at most this fraction of speed
 STEER_GAIN = 0.0                # steering while driving (0 = straight segments only)
-ALIGN_DEG = 6                   # after a turn, keep turning until within this
+EDGE_TURN_DEG = 10              # stricter heading tolerance near the arena edge
+ALIGN_DEG = 12                  # after a turn, keep turning until within this
 TURN_PULSE_MS = 120             # on-the-spot turns are pulses (turn, stop, look) of at most this
 TURN_PIVOT = 1                  # 1: turn around one wheel (smooth), 0: spin on the spot (sharp)
 TURN_SETTLE_MS = 350            # after a pulse: wait this long for the camera to see the result
@@ -74,6 +75,7 @@ MAP_HITS = 3                    # echoes in one cell before it counts as an obst
 EDGE_IGNORE = 15.0              # cm: echoes this close to the arena edge are people/walls outside, ignored
 FREE_RANGE = 80.0               # sonar ray is free space up to this far
 REPLAN_S = 0.5
+CORNER_SKIP = 15.0              # cm: path corners closer than this are not aimed at
 
 # Settings the console may change live (name: (min, max))
 TUNABLE = {

@@ -234,6 +234,7 @@ async def main():
     ap.add_argument("--person", action="store_true", help="simulate a walking person marker")
     ap.add_argument("--arena", default=None, help="real arena size WxH in cm, e.g. 260x180 "
                     "(tests automatic measuring; the server starts with its default)")
+    ap.add_argument("--start", default=None, help="start pose x,y,heading e.g. 150,-8,-90")
     ap.add_argument("--reversed-turn", action="store_true", help="robot turns the other way")
     ap.add_argument("--marker-rot", type=float, default=0,
                     help="marker stuck on rotated by this many degrees (tests calibration)")
@@ -246,6 +247,8 @@ async def main():
     global REVERSED_TURN
     REVERSED_TURN = a.reversed_turn
     rover = Rover()
+    if a.start:
+        rover.x, rover.y, rover.th = (float(v) for v in a.start.split(","))
     ws_url = a.server.replace("http", "ws", 1).rstrip("/") + "/ws"
     await asyncio.gather(physics(rover), robot_link(rover, a.robot_host, C.ROBOT_PORT),
                          camera_link(rover, Person() if a.person else None, ws_url, a.marker_rot))

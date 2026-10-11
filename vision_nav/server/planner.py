@@ -110,12 +110,13 @@ class Grid:
     def free(self, k):
         return self.inside(*k) and k not in self.inflated()
 
-    def line_free(self, a, b):
+    def line_free(self, a, b, ok=None):
+        ok = ok or self.free
         (x0, y0), (x1, y1) = self.centre_of(*a), self.centre_of(*b)
         n = int(math.hypot(x1 - x0, y1 - y0) / (self.cell / 2)) + 1
         for s in range(n + 1):
             t = s / n
-            if not self.free(self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)):
+            if not ok(self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)):
                 return False
         return True
 
@@ -207,7 +208,8 @@ class Grid:
         i = 0
         while i < len(cells) - 1:
             j = len(cells) - 1
-            while j > i + 1 and not self.line_free(cells[i], cells[j]):
+            # same rule as the search: cells near the start may be inside the fence/inflation
+            while j > i + 1 and not self.line_free(cells[i], cells[j], ok):
                 j -= 1
             out.append(cells[j])
             i = j
