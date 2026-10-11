@@ -196,6 +196,8 @@ static void startAP() {
 
 bool wifiIsSta() { return staMode; }
 
+int wifiLastRssi() { return staMode ? rssi : 0; }
+
 int wifiRssi() {
   if (!staMode) return 0;
   rssi = WiFi.RSSI();

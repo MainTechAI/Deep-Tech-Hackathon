@@ -10,6 +10,7 @@
 #include "face.h"
 #include "web.h"
 #include "follow.h"
+#include "link.h"
 
 Mode mode = MANUAL;
 float dist = 999;
@@ -67,6 +68,7 @@ void updateWarnings() {
 void service() {
   checkSerial();
   webPoll();
+  linkPoll();
   updateWarnings();
   buzzerUpdate();
 }
@@ -126,6 +128,7 @@ void setup() {
   Serial.begin(115200);
   delay(1500);
   webBegin();
+  linkBegin();
   dist = sensorRefresh();
   buzzerBeep(100, 2000);
   Serial.println("Robot ready. w/a/s/d move, x stop, m = AUTO/MANUAL, f = FOLLOW");

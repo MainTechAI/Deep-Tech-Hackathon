@@ -13,3 +13,4 @@ hardware/wayfinder_rover/secrets.h
 # vision_nav: local Wi-Fi / server credentials
 vision_nav/firmware/rover/arduino_secrets.h
 vision_nav/server/.env
+vision_nav/server/.env.prod

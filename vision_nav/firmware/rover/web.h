@@ -20,4 +20,5 @@
 void webBegin();
 bool wifiIsSta();   // joined a network (needed for FOLLOW)
 int  wifiRssi();    // fresh signal strength from the network's access point, dBm
+int  wifiLastRssi(); // last measured value, no Wi-Fi chip round-trip
 void webPoll();   // also reconnects if the network drops (robot stops meanwhile)
