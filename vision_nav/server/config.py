@@ -58,6 +58,7 @@ TURN_SPEED = 45                 # % for turning on the spot
 TURN_IN_PLACE_DEG = 35          # heading error above which the robot turns on the spot
 STEER_GAIN = 0.6                # % wheel difference per degree of heading error
 TURN_PULSE_MS = 150             # on-the-spot turns are pulses (turn, stop, look) of at most this
+TRIM = 0.0                      # %: + weakens the left wheel (robot pulls right), - the right
 MOTION_POSE_AGE = 0.3           # s: with an older camera pose the robot waits instead of driving blind
 LOOKAHEAD = 25.0                # cm along the path
 GOAL_TOL = 8.0                  # cm
@@ -70,5 +71,5 @@ REPLAN_S = 0.5
 TUNABLE = {
     "CRUISE": (15, 100), "CRUISE_MIN": (10, 100), "TURN_SPEED": (15, 100),
     "STEER_GAIN": (0.0, 3.0), "TURN_IN_PLACE_DEG": (10, 90), "TURN_PULSE_MS": (40, 600),
-    "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150),
+    "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150), "TRIM": (-30, 30),
 }

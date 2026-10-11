@@ -26,7 +26,7 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 import config as C
-from brain import Brain
+from brain import Brain, trimmed
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 
@@ -205,7 +205,8 @@ async def control_step():
     cmd = brain.tick()
     if cmd:
         if cmd[0] == "drive":
-            await robot_send(f"D {cmd[1]} {cmd[2]} {cmd[3]}")
+            l, r = trimmed(cmd[1], cmd[2])
+            await robot_send(f"D {l} {r} {cmd[3]}")
         elif cmd[0] == "stop":
             await robot_send("D 0 0 100")
         elif cmd[0] == "arrived":

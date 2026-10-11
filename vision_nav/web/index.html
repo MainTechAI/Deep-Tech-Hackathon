@@ -369,7 +369,8 @@ kbd{font:500 11px var(--font);min-width:22px;height:22px;padding:0 6px;display:i
       <div class="card-h"><h2>Tuning</h2><span class="aux">applies instantly, resets on server restart</span></div>
       <div class="tune" id="tune"></div>
       <p class="note">Robot turns too fast or overshoots: lower Turn speed or Turn pulse. Weaves left and right
-        while driving: lower Steering. Doesn't move: raise the speeds.</p>
+        while driving: lower Steering. Pulls to one side on straight lines: Calibrate sets Straight trim
+        (+ weakens the left wheel, − the right). Doesn't move: raise the speeds.</p>
     </section>
 
     <section class="card events">
@@ -636,7 +637,8 @@ $('bBeep').onclick = () => send({type: 'beep'});
 // live tuning: one number field per server setting
 const TUNE = [['CRUISE', 'Drive speed', '%'], ['CRUISE_MIN', 'Speed near goal', '%'], ['TURN_SPEED', 'Turn speed', '%'],
   ['TURN_PULSE_MS', 'Turn pulse', 'ms'], ['STEER_GAIN', 'Steering', '%/\u00b0'], ['TURN_IN_PLACE_DEG', 'Turn on spot above', '\u00b0'],
-  ['LOOKAHEAD', 'Look ahead', 'cm'], ['GOAL_TOL', 'Arrive within', 'cm'], ['FOLLOW_DIST', 'Follow distance', 'cm']];
+  ['TRIM', 'Straight trim', '%'], ['LOOKAHEAD', 'Look ahead', 'cm'], ['GOAL_TOL', 'Arrive within', 'cm'],
+  ['FOLLOW_DIST', 'Follow distance', 'cm']];
 let tuneBuilt = false;
 function renderTune() {
   if (!S.tune) return;

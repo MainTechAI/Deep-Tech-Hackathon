@@ -34,6 +34,16 @@ class Pose:
                 "age": round(now() - self.t, 2) if self.t else None}
 
 
+def trimmed(l, r):
+    """Straight-line correction for unequal motors (C.TRIM, set by hand or by calibration)."""
+    t = C.TRIM
+    if t > 0:
+        l *= 1 - t / 100
+    elif t < 0:
+        r *= 1 + t / 100
+    return int(round(l)), int(round(r))
+
+
 class Brain:
     def __init__(self):
         self.grid = Grid(C.ARENA_W, C.ARENA_H)
@@ -403,9 +413,13 @@ class Brain:
             off = G.wrap(move_dir - th0)
             # the marker may be stuck on rotated: correct the heading by the measured offset
             self.heading_offset = G.wrap(self.heading_offset + off)
-            drift = G.wrap(self.robot.th - th0)
+            drift = G.wrap(self.robot.th - th0) * self.turn_sign   # + = pulled left
+            # ~1.5 % of trim per degree of drift in 0.8 s; drifting right (-) -> weaken the left wheel
+            if abs(drift) >= 2:
+                C.TRIM = max(-30.0, min(30.0, round(C.TRIM - 1.5 * drift, 1)))
             self.log(f"calibration: {d:.0f} cm in 0.8 s ({d / 0.8:.0f} cm/s), marker offset "
-                     f"{off:+.0f} deg (corrected), heading drift {drift:+.0f} deg")
+                     f"{off:+.0f} deg (corrected), drift {drift:+.0f} deg -> straight trim {C.TRIM:+.1f} %"
+                     + (" (press Calibrate again to refine)" if abs(drift) >= 4 else ""))
             self.calib = None
             return ("stop",)
         return ("stop",)
