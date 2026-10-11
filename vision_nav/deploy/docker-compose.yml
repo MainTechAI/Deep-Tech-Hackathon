@@ -7,6 +7,10 @@ services:
       dockerfile: deploy/Dockerfile
     network_mode: host
     env_file: ../server/.env
+    environment:
+      DATA_DIR: /app/data          # tuning + calibration, kept across redeploys
+    volumes:
+      - ../data:/app/data
     restart: unless-stopped
 
   caddy:

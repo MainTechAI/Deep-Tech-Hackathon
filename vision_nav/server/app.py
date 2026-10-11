@@ -19,6 +19,7 @@ Run:  python app.py      then open http://localhost:8080/?key=<CONTROL_KEY>
 """
 import asyncio
 import json
+import os
 import time
 import traceback
 from pathlib import Path
@@ -31,6 +32,42 @@ from brain import Brain, trimmed
 WEB = Path(__file__).resolve().parent.parent / "web"
 
 brain = Brain()
+DATA = Path(os.environ.get("DATA_DIR", str(WEB.parent / "data")))
+SETTINGS = DATA / "settings.json"
+_saved = None
+
+
+def snapshot():
+    return {"tune": {k: getattr(C, k) for k in C.TUNABLE},
+            "turn_sign": brain.turn_sign, "heading_offset": brain.heading_offset}
+
+
+def load_settings():
+    """Tuning and calibration survive restarts and redeploys."""
+    global _saved
+    try:
+        s = json.loads(SETTINGS.read_text())
+    except (OSError, ValueError):
+        return
+    for k, v in s.get("tune", {}).items():
+        if k in C.TUNABLE:
+            setattr(C, k, v)
+    brain.turn_sign = s.get("turn_sign", 1)
+    brain.heading_offset = s.get("heading_offset", 0.0)
+    _saved = snapshot()
+    print(f"[app] settings loaded from {SETTINGS}")
+
+
+def save_settings():
+    global _saved
+    snap = snapshot()
+    if snap != _saved:
+        try:
+            DATA.mkdir(parents=True, exist_ok=True)
+            SETTINGS.write_text(json.dumps(snap, indent=1))
+            _saved = snap
+        except OSError as e:
+            print("[app] cannot save settings:", e)
 clients = {}             # ws -> {"role":..., "control": bool}
 robot = {"writer": None, "peer": None, "rtt": None}
 
@@ -212,6 +249,7 @@ async def control_step():
         elif cmd[0] == "arrived":
             await robot_send("D 0 0 100")
             await robot_send("B 300 2500")
+    save_settings()
     st = brain.state()
     st["robot"]["link"] = robot["writer"] is not None
     await broadcast(st)
@@ -224,6 +262,7 @@ async def control_step():
 
 
 async def on_startup(app):
+    load_settings()
     app["robot_server"] = await asyncio.start_server(handle_robot, C.ROBOT_HOST, C.ROBOT_PORT)
     app["loop_task"] = asyncio.ensure_future(control_loop())
     print(f"HTTP on :{C.HTTP_PORT}, robot TCP on :{C.ROBOT_PORT}")
