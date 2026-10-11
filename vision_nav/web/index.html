@@ -638,7 +638,8 @@ $('bBeep').onclick = () => send({type: 'beep'});
 const TUNE = [['CRUISE', 'Drive speed', '%'], ['CRUISE_MIN', 'Speed near goal', '%'], ['TURN_SPEED', 'Turn speed', '%'],
   ['TURN_PULSE_MS', 'Turn pulse', 'ms'], ['TURN_SETTLE_MS', 'Pause after turn', 'ms'], ['STEER_GAIN', 'Steering', '%/\u00b0'], ['TURN_IN_PLACE_DEG', 'Turn on spot above', '\u00b0'],
   ['TRIM', 'Straight trim', '%'], ['LOOKAHEAD', 'Look ahead', 'cm'], ['GOAL_TOL', 'Arrive within', 'cm'],
-  ['FOLLOW_DIST', 'Follow distance', 'cm']];
+  ['FOLLOW_DIST', 'Follow distance', 'cm'], ['OBSTACLE_RANGE', 'Map obstacles within', 'cm'],
+  ['MAP_HITS', 'Echoes to confirm', '\u00d7']];
 let tuneBuilt = false;
 function renderTune() {
   if (!S.tune) return;

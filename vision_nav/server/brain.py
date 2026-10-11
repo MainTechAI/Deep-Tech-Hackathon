@@ -180,7 +180,8 @@ class Brain:
         free_to = min(dist - 5, C.FREE_RANGE) if dist < 999 else C.FREE_RANGE
         if free_to > 0:
             self.grid.add_free_ray(sx, sy, sx + free_to * math.cos(a), sy + free_to * math.sin(a))
-        if dist < C.OBSTACLE_RANGE:
+        turning = abs(d.get("l", 0) - d.get("r", 0)) > 30   # the cone sweeps everything around
+        if dist < C.OBSTACLE_RANGE and not turning:
             if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a)):
                 self.log(f"obstacle mapped at {dist:.0f} cm ahead")
 
@@ -312,7 +313,7 @@ class Brain:
             for da in (-35, 0, 35):
                 a = math.radians(self.robot.th + da)
                 r = C.ROBOT_RADIUS + 3
-                for _ in range(2):
+                for _ in range(C.MAP_HITS):
                     self.grid.add_hit(self.robot.x + r * math.cos(a), self.robot.y + r * math.sin(a))
             self.backoff_until = t + 0.6
             self.log("stuck - marked an obstacle in front, backing off")

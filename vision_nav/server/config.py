@@ -64,7 +64,9 @@ MOTION_POSE_AGE = 0.3           # s: with an older camera pose the robot waits i
 LOOKAHEAD = 25.0                # cm along the path
 GOAL_TOL = 8.0                  # cm
 FOLLOW_DIST = 45.0              # cm to keep from the person
-OBSTACLE_RANGE = 60.0           # sonar hits closer than this go on the map
+OBSTACLE_RANGE = 45.0           # sonar hits closer than this go on the map
+MAP_HITS = 3                    # echoes in one cell before it counts as an obstacle
+EDGE_IGNORE = 15.0              # cm: echoes this close to the arena edge are people/walls outside, ignored
 FREE_RANGE = 80.0               # sonar ray is free space up to this far
 REPLAN_S = 0.5
 
@@ -72,6 +74,6 @@ REPLAN_S = 0.5
 TUNABLE = {
     "CRUISE": (15, 100), "CRUISE_MIN": (10, 100), "TURN_SPEED": (15, 100),
     "STEER_GAIN": (0.0, 3.0), "TURN_IN_PLACE_DEG": (10, 90), "TURN_PULSE_MS": (40, 600),
-    "TURN_SETTLE_MS": (0, 1500),
+    "TURN_SETTLE_MS": (0, 1500), "OBSTACLE_RANGE": (10, 150), "MAP_HITS": (1, 5),
     "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150), "TRIM": (-30, 30),
 }

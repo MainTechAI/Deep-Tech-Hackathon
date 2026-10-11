@@ -31,7 +31,7 @@ class Grid:
 
     # ---- map updates ----
     def occupied(self):
-        return self.walls | {k for k, v in self.hits.items() if v >= 2}
+        return self.walls | {k for k, v in self.hits.items() if v >= C.MAP_HITS}
 
     def _changed(self):
         self.version += 1
@@ -41,9 +41,12 @@ class Grid:
         k = self.cell_of(x, y)
         if not self.inside(*k):
             return False
+        e = C.EDGE_IGNORE     # the fence keeps the robot off the edge anyway; echoes there are outside things
+        if x < e or y < e or x > self.w_cm - e or y > self.h_cm - e:
+            return False
         before = self.hits.get(k, 0)
         self.hits[k] = min(5, before + 1)
-        if before < 2 <= self.hits[k]:
+        if before < C.MAP_HITS <= self.hits[k]:
             self._changed()
             return True
         return False
@@ -57,14 +60,14 @@ class Grid:
         for s in range(n):
             t = s / n
             k = self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
-            if self.hits.get(k) == 1:
+            if 0 < self.hits.get(k, 0) < C.MAP_HITS:
                 del self.hits[k]
 
     def toggle_wall(self, x, y):
         k = self.cell_of(x, y)
         if not self.inside(*k):
             return
-        if k in self.walls or self.hits.get(k, 0) >= 2:
+        if k in self.walls or self.hits.get(k, 0) >= C.MAP_HITS:
             self.walls.discard(k)
             self.hits.pop(k, None)
         else:
