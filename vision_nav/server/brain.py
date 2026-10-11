@@ -75,7 +75,8 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
-        self.last_drive = (0, 0)      # last real drive command, to find the way back when lost
+        self.last_drive = (0, 0)
+        self.recover_until = 0.0      # last real drive command, to find the way back when lost
         self.turn_state = None        # running turn pulse: th0, dir, t_end, until
         self.wrong_turns = 0
         self.aligning = False         # turning on the spot until within ALIGN_DEG
@@ -183,8 +184,8 @@ class Brain:
         if free_to > 0:
             self.grid.add_free_ray(sx, sy, sx + free_to * math.cos(a), sy + free_to * math.sin(a))
         turning = abs(d.get("l", 0) - d.get("r", 0)) > 30   # the cone sweeps everything around
-        if dist < C.OBSTACLE_RANGE and not turning:
-            close = dist < C.STOP_CM + 5          # right in front: certainly real
+        close = dist < C.STOP_CM + 5              # right in front: certainly real, always mapped
+        if (dist < C.OBSTACLE_RANGE or close) and not turning:
             if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a), force=close):
                 self.log(f"obstacle mapped at {dist:.0f} cm ahead")
 
@@ -266,14 +267,20 @@ class Brain:
             # just lost (e.g. drove out of the camera view): undo the last motion for a moment
             lost_for = now() - self.robot.t
             l, r = self.last_drive
-            if lost_for < 1.3 and l + r != 0:
+            if lost_for < 3.0 and l + r != 0:
                 self.status = "lost - coming back into view"
+                if now() < self.recover_until:
+                    return None                      # pulse running / waiting for the camera
+                self.recover_until = now() + 0.55
                 return ("drive", -40, -40, 250) if l + r > 0 else ("drive", 40, 40, 250)
             self.status = "robot not visible"
             return ("stop",)
         if now() - self.robot.t > C.MOTION_POSE_AGE:
             self.status = "waiting for camera"     # slow camera: stop and look, don't drive blind
             return ("stop",)
+        back_in = self._back_into_arena()
+        if back_in is not False:
+            return back_in
 
         target = self._mission_target()
         if target is None:
@@ -381,6 +388,21 @@ class Brain:
             remaining -= seg
             cx, cy = bx, by
         return p[-1]
+
+    def _back_into_arena(self):
+        """Robot outside the arena (but still seen): pulse straight back in - forwards if the
+        arena centre is ahead of it, backwards if it is behind - with pauses for the camera.
+        Returns False when the robot is inside."""
+        x, y, W, H = self.robot.x, self.robot.y, self.grid.w_cm, self.grid.h_cm
+        if 3 < x < W - 3 and 3 < y < H - 3:
+            return False
+        self.status = "outside the arena - coming back"
+        if now() < self.recover_until:
+            return None
+        self.recover_until = now() + 0.55
+        to_centre = math.degrees(math.atan2(H / 2 - y, W / 2 - x))
+        ahead = abs(G.wrap(to_centre - self.robot.th)) < 90
+        return ("drive", 40, 40, 250) if ahead else ("drive", -40, -40, 250)
 
     def _room_behind(self, d=25.0):
         a = math.radians(self.robot.th)
@@ -491,10 +513,11 @@ class Brain:
             self.calib = None
             return ("stop",)
         if c["step"] == "spin":
-            if t < 0.6:
-                return ("drive", C.TURN_SPEED, -C.TURN_SPEED, C.DRIVE_MS)   # spin right
-            if t < 1.2:
-                return ("stop",)
+            if not c.get("sent"):                    # one short spin right: no half-turn ambiguity
+                c["sent"] = True
+                return ("drive", C.TURN_SPEED, -C.TURN_SPEED, 200)
+            if t < 1.0:
+                return None
             dth = G.wrap(self.robot.th - c["start"][2])
             if abs(dth) < 5:
                 self.log("calibration: robot did not turn - check power / MIN_PWM")
@@ -502,7 +525,7 @@ class Brain:
                 return ("stop",)
             # spinning right should decrease the angle (CCW-positive frame)
             self.turn_sign = 1 if dth < 0 else -1
-            self.log(f"calibration: spin right gave {dth:+.0f} deg in 0.6 s"
+            self.log(f"calibration: spin right gave {dth:+.0f} deg in 0.2 s"
                      + ("" if self.turn_sign == 1 else " (reversed! turn sign flipped)"))
             c.update(step="drive", t0=now(), start=(self.robot.x, self.robot.y, self.robot.th))
             return ("stop",)
