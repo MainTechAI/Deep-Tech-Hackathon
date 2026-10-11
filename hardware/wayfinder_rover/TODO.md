@@ -27,9 +27,30 @@ not matching the gateway's JSON, so console commands were ignored.
 Measured or observed on the floor: 30 cm in a 1 s forward run at duty 110; a
 130 ms turn is about 20 degrees; left wheel at 98 % runs nearly straight.
 
-Still open: the hunt can arc because it always turns right when the signal
-drops; the wheel trim was tuned at the faster speed; the map is dead-reckoned
-and drifts; the live tuning sliders have not been tried on the rover.
+## Firmware rework (written after the floor session, not yet run on the rover)
+
+- No Wi-Fi calls while a move runs; moves end with a motor brake.
+- Sonar pings spaced 50 ms apart (false short readings came from firing them
+  8 ms apart), and no pings during turns.
+- Forward travel measured from the change in sonar reading when possible.
+- Hunt decides from the mean of RSSI samples taken at a standstill, and turns
+  by `hunt_turn_deg` (default 45) instead of 20 degrees.
+- One HTTP round trip per report; hunt stops if the gateway is unreachable.
+- Gateway: rover shown offline after 5 s of silence, unknown text no longer
+  starts a hunt, stale map points removed.
+
+To check on the floor, in this order:
+
+1. Manual pad: each direction, Stop, and that forward is refused near a wall.
+2. **1 s spin**: estimate the degrees turned and set the `turn_rate` slider to
+   it. The brake changed how far a turn coasts, so the old value is suspect.
+3. **1 s run** facing a wall about 1.5 m away: distance should still be near
+   30 cm, and `odo_fixes` in the console should count up on forward steps.
+4. Drive a square with the pad and see whether the trail closes on the map.
+5. Hunt with the phone 3 m away.
+
+Still open: heading is uncorrected, so the map drifts with every turn; the
+wheel trim was tuned at the faster speed; `SONAR_OFFSET_CM` is a guess.
 
 ## Earlier blocker (kept for the record)
 
@@ -43,7 +64,7 @@ The likely causes are:
    `INVERT_RIGHT` configuration, so a commanded forward move becomes a spin.
 2. The L298N enable pins were on D8/D13, which have no PWM on the UNO R4, so
    the motors ran at full power. **Changed, untested on the rover:** ENA is now
-   D5 and ENB is D6, and the firmware drives them with `DRIVE_DUTY` /
+   D5 and ENB is D6, and the firmware drives them with `driveDuty` /
    `TURN_DUTY`. The duties and the step and turn timings are unmeasured
    starting values.
 3. Timed moves overran: the motors kept running while the loop was blocked in
@@ -70,19 +91,18 @@ The likely causes are:
 
 ## Behaviour that is already intentional
 
-- The rover stops as `TARGET_NEARBY` when the RSSI is stronger than its
-  calibrated near-target threshold. It must be moved several metres away from
-  the phone before a hunt can begin.
+- The rover stops as `TARGET_NEARBY` when the signal reaches the `target_rssi`
+  slider value (default -50 dBm, about 50 cm in the test room) at two stops in
+  a row, or is well above it at one.
 - Wi-Fi RSSI estimates direction only through changes after short moves. The
   displayed distance is rough and is not a true position measurement.
-- The front sonar is a collision guard; it does not create a room map or know
-  whether left or right is clear.
+- The fixed front sonar guards against collisions and adds a point to the map
+  for each echo; it cannot tell whether left or right is clear.
 
 ## Files involved
 
 - `wayfinder_rover.ino` — active firmware.
 - `secrets.h` — local ignored hotspot and calibration settings.
-- `diagnostics/diagnostics.ino` — safe, no-motor Wi-Fi and sonar probe.
 - `../movement_reference/movement_reference.ino` — original L298N movement
   reference.
 - `../motor_bench/motor_bench.ino` — tethered serial test: one timed move per

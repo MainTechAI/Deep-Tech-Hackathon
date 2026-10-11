@@ -5,31 +5,1280 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wayfinder Rover Console</title>
 <style>
-:root{--bg:#f4f7fb;--surface:#fff;--line:#e5eaf2;--text:#172237;--muted:#7b899f;--blue:#2878ee;--blue-soft:#eaf2ff;--green:#16b778;--green-soft:#e8fbf3;--amber:#efad36;--red:#e35f6d;--map:#fafcff;--shadow:0 12px 34px rgba(42,65,98,.08);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;color:var(--text);background:linear-gradient(135deg,#eef3f9,#f8fafc 45%,#edf3fb);min-width:320px}.shell{max-width:1440px;min-height:calc(100vh - 48px);margin:24px auto;padding:0 16px}.app{overflow:hidden;background:var(--surface);border:1px solid #e7ecf4;border-radius:18px;box-shadow:0 24px 70px rgba(42,65,98,.12)}.browser{height:42px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid var(--line);background:#fbfcfe}.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:#ff6a6a}.dots i:nth-child(2){background:#ffd15e}.dots i:nth-child(3){background:#51ce88}.address{margin:auto;width:min(510px,55%);padding:7px 15px;border:1px solid #dfe6f0;border-radius:9px;color:#65748b;text-align:center;font-size:13px}.topbar{display:flex;align-items:center;gap:28px;padding:18px 28px;border-bottom:1px solid var(--line)}.brand{font-weight:800;font-size:24px;letter-spacing:-.04em}.brand span{color:var(--blue)}.tabs{display:flex;gap:4px}.tab{border:0;background:transparent;color:var(--muted);padding:9px 12px;border-radius:8px;cursor:pointer;font:600 13px inherit}.tab.active{background:var(--blue-soft);color:var(--blue)}.live{margin-left:auto;display:flex;gap:8px;align-items:center;background:var(--green-soft);color:#119964;border-radius:9px;padding:8px 11px;font-size:13px;font-weight:700}.live i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px #c9f4df}.layout{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:18px;padding:18px;background:#fbfcff}.map-card,.card{border:1px solid var(--line);border-radius:15px;background:var(--surface);box-shadow:var(--shadow)}.map-card{position:relative;min-height:690px;overflow:hidden}.map-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}h2,h3,p{margin:0}h2{font-size:17px;letter-spacing:-.02em}h3{font-size:16px;letter-spacing:-.02em}.sub{font-size:12px;color:var(--muted)}.map{height:640px;position:relative;overflow:hidden;background:var(--map);background-image:linear-gradient(#edf2f8 1px,transparent 1px),linear-gradient(90deg,#edf2f8 1px,transparent 1px);background-size:32px 32px}.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}.room-boundary{position:absolute;border:2px solid #cad5e5;background:#eff4fa40}.wall{position:absolute;border-radius:3px;background:#cdd7e4;box-shadow:inset 0 0 0 1px #bdc9d8}.map-dot{position:absolute;width:5px;height:5px;border-radius:50%;background:#b8c4d3;opacity:.75}.path{position:absolute;height:2px;background:repeating-linear-gradient(90deg,var(--blue) 0 9px,transparent 9px 15px);transform-origin:0 0;opacity:.9}.ray{position:absolute;height:1px;background:#8ab7ff;transform-origin:0 0}.rover{position:absolute;z-index:4;width:32px;height:32px;border:4px solid white;border-radius:50%;background:#1f304a;box-shadow:0 0 0 2px #243650,0 7px 16px #24436b55;transform:translate(-50%,-50%)}.rover:after{content:"";position:absolute;left:9px;top:-19px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:13px solid var(--blue)}.person{position:absolute;z-index:4;width:35px;height:35px;border-radius:50%;display:grid;place-items:center;background:var(--blue-soft);color:var(--blue);font-size:21px;transform:translate(-50%,-50%);box-shadow:0 0 0 8px #eaf2ff99}.recenter{position:absolute;z-index:7;top:17px;left:17px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 13px;color:#5b6b83;font:600 13px inherit;box-shadow:0 4px 12px #273a5520;cursor:pointer}.map-foot{position:absolute;z-index:7;bottom:15px;left:18px;right:18px;display:flex;justify-content:space-between;color:#65748b;font-size:12px}.side{display:grid;gap:14px;align-content:start}.card{padding:18px}.card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.badge{padding:6px 9px;border-radius:8px;background:var(--blue-soft);color:var(--blue);font-size:12px;font-weight:700}.badge.green{background:var(--green-soft);color:#119964}.rows{display:grid;gap:13px}.row{display:flex;justify-content:space-between;gap:12px;font-size:14px}.row span{color:var(--muted)}.meter{display:flex;gap:4px;align-items:end;height:18px}.meter i{width:5px;border-radius:3px;background:#d4ddea}.meter i:nth-child(1){height:5px}.meter i:nth-child(2){height:9px}.meter i:nth-child(3){height:14px}.meter i:nth-child(4){height:18px}.meter i.on{background:var(--blue)}.find p{color:var(--muted);font-size:14px;line-height:1.45;margin:0 0 16px}.primary,.secondary{width:100%;border:0;border-radius:9px;padding:13px;cursor:pointer;font:700 14px inherit}.primary{color:#fff;background:var(--blue);box-shadow:0 7px 15px #2878ee36}.secondary{margin-top:9px;color:#4d607b;background:#f1f4f8}.events{max-height:160px;overflow:auto;display:grid;gap:10px}.event{display:flex;gap:10px;align-items:baseline;font-size:12px}.event i{width:7px;height:7px;border-radius:50%;background:var(--blue)}.event time{color:var(--muted);white-space:nowrap}.event span{color:#586981}.command{display:flex;gap:9px;align-items:center;padding:14px 18px;border-top:1px solid var(--line);background:#fff}.command input{flex:1;padding:12px 14px;border:1px solid #dfe6f0;border-radius:9px;outline:0;font:14px inherit}.command input:focus{border-color:#8db8ff;box-shadow:0 0 0 3px #eaf2ff}.command button{border:0;border-radius:9px;padding:12px 16px;cursor:pointer;background:#1f304a;color:#fff;font:700 13px inherit}.wifi-view{display:none}.app.wifi-mode .dashboard-view{display:none}.app.wifi-mode .wifi-view{display:block}.wifi-map{height:640px;position:relative;overflow:hidden;background:var(--map);background-image:linear-gradient(#edf2f8 1px,transparent 1px),linear-gradient(90deg,#edf2f8 1px,transparent 1px);background-size:32px 32px}.wifi-sample{position:absolute;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 18px currentColor;opacity:.72}.wifi-legend{position:absolute;bottom:18px;left:18px;display:flex;gap:8px;align-items:center;padding:9px 11px;border-radius:9px;background:#ffffffde;border:1px solid var(--line);color:#687890;font-size:12px}.wifi-legend i{width:70px;height:8px;border-radius:6px;background:linear-gradient(90deg,#dc5a63,#efb24d,#27b980)}.wifi-rover{position:absolute;z-index:4;width:32px;height:32px;border:4px solid white;border-radius:50%;background:#1f304a;box-shadow:0 0 0 2px #243650,0 7px 16px #24436b55;transform:translate(-50%,-50%)}.wifi-rover:after{content:"";position:absolute;left:9px;top:-19px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:13px solid var(--blue)}.wifi-note{font-size:13px;line-height:1.55;color:var(--muted)}@media(max-width:980px){.layout{grid-template-columns:1fr}.side{grid-template-columns:repeat(2,1fr)}.map-card{min-height:560px}.map,.wifi-map{height:510px}}@media(max-width:650px){.shell{margin:0;padding:0}.app{border-radius:0}.browser{display:none}.topbar{padding:14px;gap:12px;flex-wrap:wrap}.tabs{order:3;width:100%;overflow:auto}.layout{padding:10px}.side{grid-template-columns:1fr}.map,.wifi-map{height:460px}.map-card{min-height:510px}.command{padding:10px}.address{display:none}}
-</style>
-<style>
-.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}.pad button{border:1px solid var(--line);border-radius:10px;background:var(--blue-soft);color:var(--blue);padding:11px 0;cursor:pointer;font:700 15px inherit}.pad button:active{background:var(--blue);color:#fff}.pad-up{grid-column:2}.pad-left{grid-column:1;grid-row:2}.pad-stop{grid-column:2;grid-row:2;background:#fdecee!important;color:var(--red)!important}.pad-right{grid-column:3;grid-row:2}.pad-down{grid-column:2;grid-row:3}.pad-test{grid-column:3;grid-row:3;font-size:12px!important}
-.tune{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.tune label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12px;color:var(--muted);margin-bottom:9px}.tune label b{color:var(--text)}.tune input{grid-column:1/3;width:100%;accent-color:var(--blue)}
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --sunken: #f5f7fa;
+  --line: #d9e0ea;
+  --text: #152033;
+  --muted: #56647a;
+  --accent: #1c64d8;
+  --accent-soft: #e6effd;
+  --ok: #0c7a50;
+  --ok-soft: #e2f6ed;
+  --warn: #8a5200;
+  --warn-soft: #fff1d6;
+  --danger: #c4283a;
+  --danger-strong: #b01f31;
+  --danger-soft: #fde8ea;
+  --map-bg: #fbfcfe;
+  --map-grid: #e6ebf2;
+  --map-axis: #c3cddb;
+  --map-wall: #c5cfdd;
+  --map-point: #5f7189;
+  --map-rover: #18263c;
+  --focus: #0b57d0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #161c26;
+    --sunken: #111721;
+    --line: #2a3443;
+    --text: #e7ecf3;
+    --muted: #9eabbe;
+    --accent: #78adff;
+    --accent-soft: #1b2a44;
+    --ok: #4fd39c;
+    --ok-soft: #14301f;
+    --warn: #f2bb5c;
+    --warn-soft: #36290f;
+    --danger: #ff8791;
+    --danger-strong: #c4283a;
+    --danger-soft: #3a1a1f;
+    --map-bg: #121821;
+    --map-grid: #1f2835;
+    --map-axis: #364355;
+    --map-wall: #3b4860;
+    --map-point: #a9b8cc;
+    --map-rover: #e7ecf3;
+    --focus: #9cc2ff;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.35;
+}
+h1, h2, p { margin: 0; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: center;
+}
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar ---------- */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-size: 17px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+.brand small { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.chip[data-tone="ok"] { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.chip[data-tone="warn"] { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.chip[data-tone="danger"] { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.keys { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.keys.paused { color: var(--warn); font-weight: 650; }
+.stop-main {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 170px;
+  justify-content: center;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--danger-strong);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.stop-main:hover { filter: brightness(1.1); }
+.stop-main:active, .stop-main.flash { transform: scale(.97); filter: brightness(.85); }
+.stop-main kbd { background: transparent; color: #fff; border-color: rgba(255,255,255,.55); }
+
+/* ---------- layout ---------- */
+.grid {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "status" "drive" "map" "tune";
+}
+.status { grid-area: status; }
+.mapcard { grid-area: map; height: 440px; }
+.drive { grid-area: drive; }
+.tuning { grid-area: tune; }
+@media (min-width: 760px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "status drive" "map drive" "tune tune";
+  }
+  .mapcard { height: auto; min-height: 470px; }
+  .tune-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 22px; }
+}
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) 290px 280px;
+    grid-template-rows: auto auto;
+    grid-template-areas: "status drive tune" "map drive tune";
+  }
+  .tune-list { display: block; }
+}
+/* Laptop screens: everything on one screen, nothing below the fold. */
+@media (min-width: 1100px) and (min-height: 600px) {
+  body { height: 100vh; overflow: hidden; }
+  .grid { min-height: 0; grid-template-rows: auto minmax(0, 1fr); align-items: stretch; }
+  .mapcard { height: auto; min-height: 0; }
+  .drive, .tuning { min-height: 0; }
+  .tuning { overflow: hidden; }
+  .tune-list { overflow-y: auto; }
+  .log { flex: 1 1 110px; min-height: 96px; }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.card-head h2 { font-size: 13px; font-weight: 750; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); }
+.tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.tag[data-tone="ok"] { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.tag[data-tone="active"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.btn {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--sunken);
+  padding: 8px 12px;
+  font-weight: 650;
+  font-size: 13px;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .btn.primary { color: #0d1117; } }
+.btn.small { padding: 4px 9px; font-size: 12px; }
+
+/* ---------- status strip ---------- */
+.status { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 560px) { .status { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); } }
+.tile { padding: 9px 12px; min-width: 0; }
+.tile .label { font-size: 11px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.tile .value { font-size: 20px; font-weight: 750; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .detail { font-size: 12px; color: var(--muted); min-height: 2.7em; }
+.tile.mode { border-left: 6px solid var(--line); }
+.tile.mode .value { font-size: 19px; white-space: normal; }
+.tile.mode[data-tone="active"] { border-left-color: var(--accent); }
+.tile.mode[data-tone="ok"] { border-left-color: var(--ok); background: var(--ok-soft); }
+.tile.mode[data-tone="warn"] { border-left-color: var(--warn); background: var(--warn-soft); }
+.tile.mode[data-tone="danger"] { border-left-color: var(--danger); background: var(--danger-soft); }
+.tile[data-tone="danger"] .value { color: var(--danger); }
+.tile[data-tone="ok"] .value { color: var(--ok); }
+.signal-row { display: flex; align-items: center; gap: 8px; }
+.signal-row canvas { flex: 1; min-width: 0; height: 26px; }
+.meter { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; }
+.meter i { width: 4px; border-radius: 2px; background: var(--line); }
+.meter i:nth-child(1) { height: 5px; } .meter i:nth-child(2) { height: 9px; }
+.meter i:nth-child(3) { height: 13px; } .meter i:nth-child(4) { height: 16px; }
+.meter i.on { background: var(--accent); }
+
+/* ---------- map ---------- */
+.mapcard { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.map-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.map-head h2 { font-size: 13px; font-weight: 750; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+.map-head .spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--sunken); }
+.seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.map-body { position: relative; flex: 1; min-height: 0; background: var(--map-bg); }
+.map-body canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.map-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.map-empty.compact { inset: 10px auto auto 50%; transform: translateX(-50%); display: block; width: max-content; max-width: calc(100% - 150px); padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 12px; }
+.map-toggle { position: absolute; top: 8px; right: 8px; z-index: 2; background: var(--surface); }
+.map-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.map-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.map-foot .spacer { flex: 1; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.sw { display: inline-block; }
+.sw.rover { width: 10px; height: 10px; border-radius: 50%; background: var(--map-rover); }
+.sw.path { width: 16px; border-top: 2px dashed var(--accent); }
+.sw.point { width: 5px; height: 5px; border-radius: 50%; background: var(--map-point); }
+.sw.ray { width: 16px; border-top: 2px solid var(--accent); opacity: .6; }
+.sw.ramp { width: 64px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); border: 1px solid var(--line); }
+[hidden] { display: none !important; }
+
+/* ---------- drive column ---------- */
+.drive { display: flex; flex-direction: column; gap: 10px; }
+.hunt-buttons { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; }
+.hunt-buttons .btn { padding: 9px 6px; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pad button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 750;
+  font-size: 13px;
+  line-height: 1.15;
+}
+.pad button .glyph { font-size: 15px; }
+.pad button small { font-size: 10px; font-weight: 650; color: var(--muted); }
+.pad button:hover { border-color: var(--accent); }
+.pad button:active, .pad button.pressed { background: var(--accent); color: #fff; }
+.pad button:active small, .pad button.pressed small { color: #fff; }
+@media (prefers-color-scheme: dark) { .pad button:active, .pad button.pressed, .pad button:active small, .pad button.pressed small { color: #0d1117; } }
+.pad [data-act="forward"] { grid-column: 2; grid-row: 1; }
+.pad [data-act="left"] { grid-column: 1; grid-row: 2; }
+.pad [data-act="stop"] { grid-column: 2; grid-row: 2; background: var(--danger-strong); border-color: var(--danger-strong); color: #fff; }
+.pad [data-act="stop"] small { color: #fff; }
+.pad [data-act="right"] { grid-column: 3; grid-row: 2; }
+.pad [data-act="back"] { grid-column: 2; grid-row: 3; }
+.pad [data-act="test"] { grid-column: 3; grid-row: 3; background: var(--sunken); color: var(--text); }
+.pad [data-act="spin"] { grid-column: 1; grid-row: 3; background: var(--sunken); color: var(--text); }
+.pad button:disabled, .btn:disabled, .command-row input:disabled { opacity: .45; cursor: not-allowed; border-style: dashed; }
+.pad button:disabled:hover, .btn:disabled:hover { border-color: var(--line); }
+.pad button.blocked { background: var(--warn-soft); color: var(--warn); border-style: dashed; border-color: var(--warn); }
+.pad button.blocked small { color: var(--warn); }
+.feedback { margin-top: 8px; min-height: 3.1em; font-size: 12px; color: var(--muted); }
+.feedback div[data-tone="ok"] { color: var(--ok); }
+.feedback div[data-tone="warn"] { color: var(--warn); }
+.feedback div[data-tone="danger"] { color: var(--danger); font-weight: 650; }
+.command-row { display: flex; gap: 6px; }
+.command-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--sunken);
+}
+.command-card .note { margin-top: 5px; }
+.log { display: flex; flex-direction: column; min-height: 120px; max-height: 260px; }
+.events { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.events li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 7px; padding: 3px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.events li:first-child { border-top: 0; }
+.events time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.events .kind { font-size: 10px; font-weight: 750; letter-spacing: .04em; color: var(--muted); }
+.events .kind[data-kind="ERROR"] { color: var(--danger); }
+.events .msg { overflow-wrap: anywhere; }
+.events .empty { display: block; color: var(--muted); border: 0; }
+
+/* ---------- tuning ---------- */
+.tuning { display: flex; flex-direction: column; }
+.tune-list { flex: 1; min-height: 0; padding-right: 2px; }
+.tune-row { padding: 4px 0 3px; border-top: 1px solid var(--line); }
+.tune-row:first-child { border-top: 0; }
+.tune-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tune-top label { font-weight: 650; font-size: 13px; }
+.tune-top output { font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tune-val { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.tune-val button { border: 1px solid var(--line); border-radius: 6px; background: var(--sunken); padding: 0 6px; color: var(--accent); font-size: 11px; font-weight: 650; }
+.tune-hint { font-size: 11px; color: var(--muted); }
+.tune-row input[type="range"] { display: block; width: 100%; margin: 2px 0 0; accent-color: var(--accent); }
+.tune-status { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); min-height: 1.4em; }
+.tune-status[data-tone="ok"] { color: var(--ok); }
+.tune-status[data-tone="danger"] { color: var(--danger); font-weight: 650; }
+
+/* Narrow windows: drop the key legend first so Stop always stays on screen. */
+.stop-main { margin-left: 0; }
+@media (max-width: 880px) {
+  .keys { display: none; }
+  .stop-main { margin-left: auto; }
+}
+@media (max-width: 640px) {
+  .brand small { display: none; }
+  .bar { gap: 8px; }
+  .chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .stop-main { min-width: 110px; padding: 9px 12px; }
+  .stop-main kbd { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="shell"><main class="app" id="app">
-<div class="browser"><div class="dots"><i></i><i></i><i></i></div><div class="address">192.168.4.1 · WAYFINDER LOCAL CONSOLE</div></div>
-<header class="topbar"><div class="brand">Way<span>finder</span></div><nav class="tabs"><button class="tab active" data-view="dashboard">Dashboard</button><button class="tab" data-view="wifi">Map &amp; Sensors</button></nav><div class="live"><i></i><span id="liveText">Rover offline</span></div></header>
-<div class="dashboard-view"><div class="layout"><section class="map-card"><div class="map-head"><div><h2>Local map</h2><div class="sub">Sonar returns and rover path</div></div><span class="sub" id="mapCount">Waiting for telemetry</span></div><div class="map" id="map"><div class="map-empty" id="mapEmpty">Waiting for rover telemetry</div><button class="recenter" id="resetRoom">↺ Reset test room</button><div class="person" id="person">●</div><div class="rover" id="rover"></div><div class="map-foot"><span id="position">Position —</span><span id="heading">Heading —</span></div></div></section><aside class="side"><section class="card"><div class="card-title"><h3>Robot status</h3><span class="badge" id="mode">Offline</span></div><div class="rows"><div class="row"><span>Position</span><b id="positionCard">—</b></div><div class="row"><span>Signal</span><b id="rssi">—</b></div><div class="row"><span>Forward range</span><b id="front">—</b></div></div></section><section class="card find"><div class="card-title"><h3>Find user</h3><span class="badge green" id="targetState">Ready</span></div><p>Move toward the known hotspot while avoiding obstacles.</p><button class="primary" id="startHunt">▶ Start hunt</button><button class="secondary" id="stop">Pause</button></section><section class="card"><div class="card-title"><h3>Manual control</h3><span class="sub">One move per press</span></div><div class="pad"><button data-cmd="forward" class="pad-up">▲</button><button data-cmd="left" class="pad-left">◀</button><button data-cmd="Stop immediately" class="pad-stop">■</button><button data-cmd="right" class="pad-right">▶</button><button data-cmd="back" class="pad-down">▼</button><button data-cmd="test" class="pad-test">1 s run</button></div><div class="tune" id="tune"></div></section><section class="card"><div class="card-title"><h3>Connection</h3><span class="badge green" id="connection">Offline</span></div><div class="rows"><div class="row"><span>Network</span><b id="network">—</b></div><div class="row"><span>Wi‑Fi signal</span><div class="meter" id="meter"><i></i><i></i><i></i><i></i></div></div></div></section><section class="card"><div class="card-title"><h3>Event log</h3><span class="sub">Latest</span></div><div class="events" id="events"></div></section></aside></div></div>
-<div class="wifi-view"><div class="layout"><section class="map-card"><div class="map-head"><div><h2>Wi‑Fi signal map</h2><div class="sub">Open-room test · no sonar or obstacle data</div></div><span class="sub" id="wifiCount">0 samples</span></div><div class="wifi-map" id="wifiMap"><div class="map-empty" id="wifiEmpty">Move the rover to record Wi‑Fi samples</div><div class="wifi-rover" id="wifiRover"></div><div class="wifi-legend"><span>Weak</span><i></i><span>Strong</span></div></div></section><aside class="side"><section class="card"><div class="card-title"><h3>Signal hunt</h3><span class="badge" id="wifiMode">Standby</span></div><p class="wifi-note">The rover makes short moves, compares RSSI, continues when it improves and changes direction when it drops.</p><button class="primary" id="startWifi">▶ Start Wi‑Fi hunt</button><button class="secondary" id="resetWifi">Reset open-room test</button></section><section class="card"><div class="card-title"><h3>Current reading</h3><span class="badge green" id="wifiTrend">—</span></div><div class="rows"><div class="row"><span>RSSI</span><b id="wifiRssi">—</b></div><div class="row"><span>Estimated distance</span><b id="wifiDistance">—</b></div></div></section><section class="card"><div class="card-title"><h3>Connection</h3><span class="badge green">Wi‑Fi only</span></div><p class="wifi-note">This view is for testing the signal-following logic before the sonar is connected.</p></section></aside></div></div>
-<div class="command"><input id="command" placeholder="Type an English command, e.g. Find WAYFINDER_PLAYER"><button id="send">Send command</button></div>
-</main></div>
+
+<header class="bar">
+  <h1 class="brand">Wayfinder<small>rover console</small></h1>
+  <div class="chip" id="conn" role="status"><span id="connIcon" aria-hidden="true">○</span><span id="connText">Connecting…</span></div>
+  <div class="keys" id="keys">
+    <span id="keysText">Drive</span> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span>or arrows ·</span> <span>focus command</span> <kbd>/</kbd>
+  </div>
+  <button class="stop-main" id="stopMain" type="button" title="Stop the rover (Space or Esc)">■ STOP <kbd>Space</kbd></button>
+</header>
+
+<main class="grid">
+
+  <section class="status" aria-label="Rover status">
+    <div class="card tile mode" id="modeTile" data-tone="off" role="status">
+      <div class="label">Rover is</div>
+      <div class="value" id="modeText">Offline</div>
+      <div class="detail" id="modeWhy">Waiting for the rover to report in.</div>
+    </div>
+    <div class="card tile" id="signalTile">
+      <div class="label">Wi‑Fi signal</div>
+      <div class="signal-row">
+        <div class="value num" id="rssi">—</div>
+        <span class="meter" id="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <canvas id="spark" width="120" height="26" aria-hidden="true"></canvas>
+      </div>
+      <div class="detail" id="signalDetail">No reading yet.</div>
+    </div>
+    <div class="card tile" id="frontTile">
+      <div class="label">Ahead (sonar)</div>
+      <div class="value num" id="front">—</div>
+      <div class="detail" id="frontDetail">No reading yet.</div>
+    </div>
+    <div class="card tile" id="poseTile">
+      <div class="label">Position (m)</div>
+      <div class="value num" id="pose">—</div>
+      <div class="detail" id="poseDetail">Dead reckoning; drifts.</div>
+    </div>
+  </section>
+
+  <section class="card mapcard" aria-label="Map">
+    <div class="map-head">
+      <h2>Map</h2>
+      <div class="seg" role="group" aria-label="Map layer">
+        <button type="button" data-layer="sonar" aria-pressed="true">Obstacles</button>
+        <button type="button" data-layer="wifi" aria-pressed="false">Wi‑Fi signal</button>
+      </div>
+      <div class="seg" id="simProfile" role="group" aria-label="Simulated room" hidden>
+        <button type="button" data-profile="sonar-room" aria-pressed="true" title="Reset the simulator to the room with walls">Sim: walls</button>
+        <button type="button" data-profile="wifi-open-room" aria-pressed="false" title="Reset the simulator to the open room (Wi‑Fi only test)">Sim: open</button>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn small" id="resetMap" type="button" title="Clear the map and restart the rover's position estimate at its current spot">↺ Reset map</button>
+    </div>
+    <div class="map-body" id="mapBody">
+      <canvas id="map" role="img" aria-label="Top-down map of the rover path and sonar returns"></canvas>
+      <div class="map-empty" id="mapEmpty">Waiting for rover telemetry</div>
+      <button class="btn small map-toggle" id="roomToggle" type="button" aria-pressed="true" title="Show or hide the floor plan image (room.json)" hidden>✓ Floor plan</button>
+    </div>
+    <div class="map-foot">
+      <span class="legend-item"><i class="sw rover"></i>rover, arrow = heading</span>
+      <span class="legend-item"><i class="sw path"></i>path</span>
+      <span class="legend-item" data-for="sonar"><i class="sw point"></i>sonar return</span>
+      <span class="legend-item" data-for="sonar"><i class="sw ray"></i>sonar beam</span>
+      <span class="legend-item" data-for="wifi" hidden>−90 dBm weak <i class="sw ramp"></i> strong −42 dBm</span>
+      <span class="spacer"></span>
+      <span class="num"><span id="mapCount"></span>grid in metres, <span id="poseNote">position is an estimate</span></span>
+    </div>
+  </section>
+
+  <div class="drive">
+    <section class="card" aria-label="Hunt">
+      <div class="card-head"><h2>Hunt for phone</h2><span class="tag" id="huntState">Not hunting</span></div>
+      <div class="hunt-buttons">
+        <button class="btn primary" id="startHunt" type="button" title="Step toward the stronger Wi‑Fi signal, using the sonar as a collision guard">▶ Start hunt</button>
+        <button class="btn" id="startWifi" type="button" title="Resets the map first, then hunts by signal only. In the simulator this is the open room without walls.">Wi‑Fi only</button>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Manual control">
+      <div class="card-head"><h2>Manual</h2><span class="note">one short move per press</span></div>
+      <div class="pad" id="pad">
+        <button type="button" data-act="forward" aria-label="Forward (W or up arrow)"><span class="glyph" aria-hidden="true">▲</span><small>Forward</small></button>
+        <button type="button" data-act="left" aria-label="Turn left (A or left arrow)"><span class="glyph" aria-hidden="true">◀</span><small>Left</small></button>
+        <button type="button" data-act="stop" aria-label="Stop (Space)"><span class="glyph" aria-hidden="true">■</span><small>Stop</small></button>
+        <button type="button" data-act="right" aria-label="Turn right (D or right arrow)"><span class="glyph" aria-hidden="true">▶</span><small>Right</small></button>
+        <button type="button" data-act="back" aria-label="Back (S or down arrow)"><span class="glyph" aria-hidden="true">▼</span><small>Back</small></button>
+        <button type="button" data-act="spin" title="Calibration: spins left for exactly one second. Measure the degrees it turned and put that in Turn rate."><span>1 s spin</span><small>measure °</small></button>
+        <button type="button" data-act="test" title="Calibration: drives forward for exactly one second. Measure the centimetres it travelled to get its speed."><span>1 s run</span><small>measure cm</small></button>
+      </div>
+      <div class="feedback">
+        <div id="cmdFeedback" role="status">No command sent yet.</div>
+        <div id="obstacleNote" role="status"></div>
+      </div>
+    </section>
+
+    <section class="card command-card" aria-label="Text command">
+      <div class="command-row">
+        <input id="command" type="text" autocomplete="off" aria-label="Text command" placeholder="Type a command, e.g. find, stop, left">
+        <button class="btn" id="send" type="button">Send</button>
+      </div>
+      <div class="note" id="commandNote">find · stop · forward · back · left · right · test · spin</div>
+    </section>
+
+    <section class="card log" aria-label="Event log">
+      <div class="card-head"><h2>Event log</h2><span class="note">newest first</span></div>
+      <ul class="events" id="events"><li class="empty">Nothing yet.</li></ul>
+    </section>
+  </div>
+
+  <section class="card tuning" aria-label="Tuning">
+    <div class="card-head"><h2>Tuning</h2><button class="btn small" id="tuneReset" type="button" title="Send the firmware defaults for every setting">Reset to defaults</button></div>
+    <div class="tune-list" id="tune"></div>
+    <div class="tune-status" id="tuneStatus" role="status">Sent when you release a slider.</div>
+  </section>
+
+</main>
+
 <script>
-const API=window.WAYFINDER_API||'http://127.0.0.1:8000';const $=s=>document.querySelector(s);let trail=[],wifiSamples=[],seen=new Set(),busy=false;const number=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const project=p=>({x:clamp(50+Number(p.x)*10,3,97),y:clamp(50-Number(p.y)*12,4,94)});function line(parent,a,b,cls){const n=document.createElement('i'),dx=b.x-a.x,dy=b.y-a.y;n.className=cls;n.style.left=a.x+'%';n.style.top=a.y+'%';n.style.width=Math.hypot(dx,dy)+'%';n.style.transform=`rotate(${Math.atan2(dy,dx)*180/Math.PI}deg)`;parent.appendChild(n)}function clearMap(selector){$(selector).querySelectorAll('.wall,.room-boundary,.map-dot,.path,.ray,.wifi-sample').forEach(n=>n.remove())}function shape(map,cls,left,bottom,right,top){const a=project({x:left,y:bottom}),b=project({x:right,y:top}),n=document.createElement('i');n.className=cls;n.style.left=Math.min(a.x,b.x)+'%';n.style.top=Math.min(a.y,b.y)+'%';n.style.width=Math.abs(a.x-b.x)+'%';n.style.height=Math.abs(a.y-b.y)+'%';map.appendChild(n)}function drawMap(data){const map=$('#map'),p=data.position;clearMap('#map');if(!p||!number(p.x)||!number(p.y)){if(data.source==='uno-r4-wifi'){$('#mapEmpty').textContent=number(data.sonar?.front)?`Fixed front sonar: ${Math.round(data.sonar.front)} cm · a room map needs wheel encoders or an IMU`:'Fixed front sonar has no valid return · rover remains stopped';$('#mapEmpty').style.display='grid';$('#mapCount').textContent='Physical rover · no claimed map'}return;}$('#mapEmpty').style.display='none';if(data.room_bounds){const b=data.room_bounds;shape(map,'room-boundary',b.left,b.bottom,b.right,b.top)}if(data.simulation_profile!=='wifi-open-room')(data.room_obstacles||[]).forEach(w=>shape(map,'wall',w.left,w.bottom,w.right,w.top));const q=project(p),rover=$('#rover');rover.style.left=q.x+'%';rover.style.top=q.y+'%';rover.style.transform=`translate(-50%,-50%) rotate(${90-Number(data.heading||0)}deg)`;const target=data.target_position;if(target&&data.simulation_profile!=='wifi-open-room'){const t=project(target),person=$('#person');person.style.display='grid';person.style.left=t.x+'%';person.style.top=t.y+'%'}else $('#person').style.display='none';const last=trail.at(-1);if(!last||Math.hypot(last.x-p.x,last.y-p.y)>.03)trail.push({x:+p.x,y:+p.y});trail=trail.slice(-180);trail.slice(1).forEach((v,i)=>line(map,project(trail[i]),project(v),'path'));(data.points||[]).slice(-300).forEach(v=>{const d=document.createElement('i'),at=project(v);d.className='map-dot';d.style.left=at.x+'%';d.style.top=at.y+'%';map.appendChild(d)});if(data.scan?.hit)line(map,q,project(data.scan.hit),'ray');$('#position').textContent=`Position X ${Number(p.x).toFixed(2)} / Y ${Number(p.y).toFixed(2)} m`;$('#heading').textContent=`Heading ${Math.round(data.heading||0)}°`;$('#mapCount').textContent=`${(data.points||[]).length} returns`}function drawWifi(data,rssi){const map=$('#wifiMap'),p=data.position;if(!number(rssi))return;if(!p||!number(p.x)||!number(p.y)){$('#wifiEmpty').textContent='Live RSSI is available. A spatial Wi-Fi map needs wheel encoders or an IMU.';$('#wifiEmpty').style.display='grid';$('#wifiCount').textContent=`Live · ${data.source||'rover'}`;$('#wifiRssi').textContent=`${Math.round(rssi)} dBm`;$('#wifiDistance').textContent='RSSI only';$('#wifiTrend').textContent=data.signal_trend||'Reading';$('#wifiMode').textContent=String(data.mode||'Standby').replaceAll('_',' ');return;}const last=wifiSamples.at(-1);if(!last||Math.hypot(last.x-p.x,last.y-p.y)>.025)wifiSamples.push({x:+p.x,y:+p.y,rssi:+rssi});wifiSamples=wifiSamples.slice(-250);map.querySelectorAll('.wifi-sample').forEach(n=>n.remove());wifiSamples.forEach(v=>{const at=project(v),ratio=clamp((v.rssi+90)/48,0,1),r=Math.round(221-170*ratio),g=Math.round(83+112*ratio),d=document.createElement('i');d.className='wifi-sample';d.style.left=at.x+'%';d.style.top=at.y+'%';d.style.background=`rgb(${r},${g},92)`;d.style.color=`rgb(${r},${g},92)`;map.appendChild(d)});const at=project(p),rover=$('#wifiRover');rover.style.left=at.x+'%';rover.style.top=at.y+'%';rover.style.transform=`translate(-50%,-50%) rotate(${90-Number(data.heading||0)}deg)`;$('#wifiEmpty').style.display='none';$('#wifiCount').textContent=`${wifiSamples.length} samples`;$('#wifiRssi').textContent=`${Math.round(rssi)} dBm`;$('#wifiDistance').textContent=number(data.estimated_target_distance_m)?`${data.estimated_target_distance_m} m`:'—';$('#wifiTrend').textContent=data.signal_trend||'Reading';$('#wifiMode').textContent=String(data.mode||'Standby').replaceAll('_',' ')}function event(e){const key=`${e.time}:${e.kind}:${e.message}`;if(seen.has(key))return;seen.add(key);const n=document.createElement('div');n.className='event';n.innerHTML=`<i></i><time>${e.time||''}</time><span>${e.message||e.kind}</span>`;const box=$('#events');box.prepend(n);while(box.children.length>5)box.lastChild.remove()}function render(data){const online=!!data.connected,rssi=data.rssi_dbm??data.rssi;$('#liveText').textContent=online?'Rover online':'Rover offline';$('#connection').textContent=online?'Connected':'Offline';$('#mode').textContent=online?String(data.mode||'IDLE').replaceAll('_',' '):'Offline';$('#targetState').textContent=data.target_nearby?'Target nearby':'Searching';$('#network').textContent=data.network||'—';$('#rssi').textContent=number(rssi)?`${Math.round(rssi)} dBm`:'—';$('#front').textContent=number(data.sonar?.front)?`${Math.round(data.sonar.front)} cm`:'—';$('#positionCard').textContent=data.position?`${data.position.x}, ${data.position.y}`:'—';const quality=number(rssi)?clamp(Math.round((rssi+95)/12),0,4):0;[...$('#meter').children].forEach((n,i)=>n.classList.toggle('on',i<quality));drawMap(data);drawWifi(data,rssi);(data.events||[]).slice().reverse().forEach(event)}async function command(text){if(!text||busy)return;busy=true;try{const r=await fetch(API+'/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw Error();const plan=(await r.json()).plan||{};event({time:new Date().toLocaleTimeString('en-GB'),kind:'COMMAND',message:`${String(plan.action||'command').replaceAll('_',' ')} requested`})}catch{event({time:new Date().toLocaleTimeString('en-GB'),kind:'ERROR',message:'Backend is offline'})}finally{busy=false}}async function reset(profile='sonar-room'){trail=[];wifiSamples=[];try{await fetch(API+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})})}catch{}}async function poll(){try{const r=await fetch(API+'/api/state',{cache:'no-store'});if(!r.ok)throw Error();render(await r.json())}catch{render({connected:false,sonar:{}})}setTimeout(poll,400)}document.querySelectorAll('[data-view]').forEach(tab=>tab.addEventListener('click',()=>{const wifi=tab.dataset.view==='wifi';$('#app').classList.toggle('wifi-mode',wifi);document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===tab))}));$('#startHunt').onclick=()=>command('Find WAYFINDER_PLAYER safely. Scan signal direction and avoid obstacles.');$('#startWifi').onclick=async()=>{await reset('wifi-open-room');command('Find WAYFINDER_PLAYER using Wi-Fi signal only in an open room. Move a short step, continue if signal gets stronger, otherwise change direction.')};$('#stop').onclick=()=>command('Stop immediately');$('#resetRoom').onclick=()=>reset('sonar-room');$('#resetWifi').onclick=()=>reset('wifi-open-room');$('#send').onclick=()=>{command($('#command').value);$('#command').value=''};$('#command').addEventListener('keydown',e=>{if(e.key==='Enter')$('#send').click()});poll();
-</script>
-<script>
-// Manual pad and live tuning. Slider values go to the gateway, and the rover picks them up on its next command poll.
-const TUNING=[['drive_duty','Drive power',70,255,5,110,''],['step_ms','Forward step',100,1000,20,340,' ms'],['settle_ms','Pause after each move',0,2000,50,700,' ms'],['turn_ms','Turn length',40,500,10,130,' ms'],['safe_cm','Avoid obstacles within',10,60,1,25,' cm'],['left_trim_pct','Left wheel power',85,115,1,98,' %'],['target_rssi','Found at signal',-70,-35,1,-50,' dBm']];
-document.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>command(b.dataset.cmd)));
-async function sendTuning(key,value){try{await fetch(API+'/api/tuning',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:value})})}catch{}}
-(async()=>{let saved={};try{saved=(await (await fetch(API+'/api/state',{cache:'no-store'})).json()).tuning||{}}catch{}
-for(const [key,label,min,max,step,initial,unit] of TUNING){const row=document.createElement('label'),value=saved[key]??initial;row.innerHTML=`<span>${label}</span><b>${value}${unit}</b><input type="range" min="${min}" max="${max}" step="${step}" value="${value}">`;const input=row.querySelector('input'),out=row.querySelector('b');input.addEventListener('input',()=>out.textContent=input.value+unit);input.addEventListener('change',()=>sendTuning(key,Number(input.value)));$('#tune').appendChild(row)}})();
+'use strict';
+/* ------------------------------------------------------------------ *
+ * Wayfinder rover console. Single file, no dependencies.
+ * API base: window.WAYFINDER_API, or ?api=http://host:port, or the default.
+ * ------------------------------------------------------------------ */
+const queryApi = new URLSearchParams(location.search).get('api');
+const API = (window.WAYFINDER_API || (/^https?:\/\//.test(queryApi || '') ? queryApi : '') || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const POLL_MS = 400;
+const OPEN_CM = 350;          // firmware reports this when nothing is in sonar range
+const JUMP_M = 0.3;            // a position change this large between polls is a jump, not movement
+const MAX_SPEED_M_S = 0.8;     // faster than the rover can drive; used with JUMP_M when polls are far apart
+const STALE_AFTER_MS = 6000;  // telemetry unchanged this long -> warn
+
+/* Tuning panel: add a row here when the backend gains a key (it must also be in TUNING_KEYS there). */
+const TUNING = [
+  { key: 'drive_duty',    label: 'Drive power',           min: 70,  max: 255,  step: 5,  def: 110, unit: '',     hint: 'Straight moves. Under ~90 wheels may stall.' },
+  { key: 'step_ms',       label: 'Forward step',          min: 100, max: 1000, step: 20, def: 340, unit: ' ms',  hint: 'About 10 cm per step at default power.' },
+  { key: 'settle_ms',     label: 'Pause after each move', min: 0,   max: 2000, step: 50, def: 700, unit: ' ms',  hint: 'Lets the Wi‑Fi reading settle after a move.' },
+  { key: 'turn_deg',      label: 'Manual turn',           min: 5,   max: 90,   step: 1,  def: 20,  unit: '°',    hint: 'Angle of one Left / Right press.' },
+  { key: 'hunt_turn_deg', label: 'Hunt turn',             min: 10,  max: 120,  step: 5,  def: 45,  unit: '°',    hint: 'Turn the hunt makes when the signal drops.' },
+  { key: 'turn_rate',     label: 'Turn rate (calibration)', min: 60, max: 600, step: 2,  def: 256, unit: '°/s',  hint: 'Degrees turned in the “1 s spin” test. Turns come out too big: raise it; too small: lower it.' },
+  { key: 'safe_cm',       label: 'Stop distance',         min: 10,  max: 60,   step: 1,  def: 25,  unit: ' cm',  hint: 'Forward is refused when something is closer.' },
+  { key: 'left_trim_pct', label: 'Left wheel power',      min: 85,  max: 115,  step: 1,  def: 98,  unit: ' %',   hint: 'Curves right: lower it. Curves left: raise it.' },
+  { key: 'target_rssi',   label: 'Found at signal',       min: -70, max: -35,  step: 1,  def: -50, unit: ' dBm', hint: 'Signal that counts as “phone found”.' },
+];
+
+/* What each pad button / key sends. `text` is parsed by the gateway. */
+const ACTIONS = {
+  forward: { text: 'forward', label: 'Forward' },
+  back:    { text: 'back', label: 'Back' },
+  left:    { text: 'left', label: 'Turn left' },
+  right:   { text: 'right', label: 'Turn right' },
+  test:    { text: 'test', label: '1 s forward run' },
+  spin:    { text: 'spin', label: '1 s spin' },
+  stop:    { text: 'Stop immediately', label: 'Stop' },
+  hunt:    { text: 'Find the phone hotspot', label: 'Start hunt' },
+  wifi:    { text: 'Find the phone hotspot, Wi-Fi signal only', label: 'Wi‑Fi only hunt' },
+};
+/* Physical key positions, so WASD also works on non-Latin keyboard layouts. */
+const KEYS = { KeyW: 'forward', ArrowUp: 'forward', KeyS: 'back', ArrowDown: 'back', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
+
+/* Rover modes (firmware + simulator) in plain words. tone: off | idle | active | ok | warn | danger */
+const MODES = {
+  IDLE:           ['Idle', 'Stopped and waiting for a command.', 'idle'],
+  STOPPED:        ['Stopped', 'Stopped and waiting for a command.', 'idle'],
+  MANUAL:         ['Manual move', 'Carrying out a single manual move.', 'active'],
+  WIFI_HUNT:      ['Hunting', 'Short steps forward; turns when the signal clearly drops.', 'active'],
+  SEARCHING:      ['Hunting', 'Following the signal and avoiding obstacles.', 'active'],
+  WIFI_SEARCHING: ['Hunting (Wi‑Fi only)', 'Following the signal only, no obstacle data.', 'active'],
+  SCANNING:       ['Scanning', 'Sweeping the sonar to look around.', 'active'],
+  WIFI_SCANNING:  ['Sampling signal', 'Comparing signal strength before the next step.', 'active'],
+  AVOIDING:       ['Avoiding obstacle', 'Something is ahead: backing up and turning away.', 'warn'],
+  TARGET_NEARBY:  ['Found the phone', 'Signal is strong enough: the hunt is finished.', 'ok'],
+  WAITING_WIFI:   ['Waiting for Wi‑Fi', 'The rover lost the hotspot and is reconnecting.', 'warn'],
+  BLOCKED:        ['Blocked', 'Forward move refused: something is closer than the stop distance. Back up or turn.', 'danger'],
+};
+const PLAN_LABEL = { forward: 'Forward', backward: 'Back', left: 'Turn left', right: 'Turn right', stop: 'Stop', explore: 'Start hunt', wifi_hunt: 'Wi‑Fi only hunt', forward_1s: '1 s forward run', spin_1s: '1 s spin', scan: 'Scan' };
+const HUNTING = new Set(['WIFI_HUNT', 'AVOIDING', 'SEARCHING', 'WIFI_SEARCHING', 'SCANNING', 'WIFI_SCANNING']);
+
+const $ = id => document.getElementById(id);
+const num = v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const clock = () => new Date().toLocaleTimeString('en-GB');
+const titleCase = s => String(s).toLowerCase().replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
+
+const state = {
+  data: null,            // last /api/state body
+  gatewayUp: null,       // null = not known yet
+  online: false,
+  layer: 'sonar',
+  trail: [],             // {x, y, brk}; brk = starts a new segment (position jumped)
+  room: null,            // floor plan underlay from room.json, if present
+  roomVisible: true,
+  samples: [],           // Wi-Fi samples {x, y, rssi}
+  rssiHistory: [],
+  view: null,            // map bounds in metres, only ever grows until reset
+  resetToken: undefined,
+  fingerprint: '',
+  lastChangeAt: 0,
+  tuningPending: {},     // key -> timestamp of a local change not yet echoed by the gateway
+};
+
+/* ------------------------------ network ------------------------------ */
+async function request(path, body, timeoutMs = 3000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(API + path, body === undefined
+      ? { cache: 'no-store', signal: ctrl.signal }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ------------------------------ commands ------------------------------ */
+let commandSeq = 0;
+let lastLabel = '', lastAt = 0, repeat = 0;
+let pendingAck = null;   // the command we are waiting for the rover to take: {what, time, sentAt, resolvedAt, id, late}
+
+function feedback(tone, text) {
+  const node = $('cmdFeedback');
+  node.dataset.tone = tone;
+  node.textContent = text;
+}
+
+/* Every press is sent (no "busy" lock), so Stop can never be swallowed by an earlier request. */
+async function sendCommand(text, label, freeText = false) {
+  if (!text) return;
+  const seq = ++commandSeq;
+  const now = Date.now();
+  repeat = (label === lastLabel && now - lastAt < 5000) ? repeat + 1 : 1;
+  lastLabel = label; lastAt = now;
+  const shown = repeat > 1 ? `${label} ×${repeat}` : label;
+  pendingAck = null;
+  feedback('', `… ${shown}: sending`);
+  try {
+    const reply = await request('/api/command', { text });
+    if (seq !== commandSeq) return;
+    const plan = reply.plan || {};
+    const understood = PLAN_LABEL[plan.action] || titleCase(plan.action || 'command');
+    const what = freeText ? `“${text}” understood as: ${understood}` : shown;
+    if (reply.accepted === false || plan.action === 'unknown') {
+      feedback('danger', `✕ Not understood: “${text}”. Nothing was sent to the rover. Try: find, stop, forward, back, left, right, test, spin.`);
+    } else if (freeText && plan.requires_confirmation) {   // older gateway: unrecognised text became a hunt
+      feedback('warn', `! “${text}” was not recognised, so the gateway started a hunt. Press Stop if that was not intended.`);
+    } else if (!state.online) {
+      feedback('warn', `! ${what}: queued at ${clock()}, but the rover is offline. It will run when the rover reconnects.`);
+    } else if (state.data && 'ack_command_id' in state.data) {
+      /* This gateway reports which command the rover took: wait for that (see trackAck). */
+      pendingAck = { what, time: clock(), sentAt: now, resolvedAt: Date.now(), id: null, late: false };
+      feedback('', `→ ${what}: sent ${pendingAck.time}, waiting for the rover…`);
+    } else {
+      feedback('ok', `✓ ${what}: sent ${clock()}. The rover acts on its next poll.`);
+    }
+  } catch {
+    if (seq !== commandSeq) return;
+    feedback('danger', `✕ ${shown}: NOT sent. Gateway unreachable at ${API}`);
+    logEvent({ time: clock(), kind: 'ERROR', message: `${label} not sent: gateway unreachable` });
+  }
+}
+
+/* Turn "sent" into "done by rover" once the rover has taken the command we sent.
+   The reply to POST /api/command carries no id, so ours is the command_id of the first poll that started after the POST resolved. */
+function trackAck(d, pollStartedAt) {
+  const p = pendingAck;
+  if (!p || !('ack_command_id' in d) || !num(d.command_id)) return;
+  if (p.id === null) {
+    if (pollStartedAt < p.resolvedAt) return;
+    p.id = Number(d.command_id);
+  }
+  if (Number(d.command_id) !== p.id) { pendingAck = null; return; }   // a newer command replaced ours (another console)
+  if (num(d.ack_command_id) && Number(d.ack_command_id) === p.id) {
+    feedback('ok', `✓ ${p.what}: done by rover (sent ${p.time}).`);
+    pendingAck = null;
+  } else if (!p.late && state.online && Date.now() - p.sentAt > 3000) {
+    p.late = true;
+    feedback('warn', `! ${p.what}: sent ${p.time}, rover has not picked it up yet.`);
+  }
+}
+
+function act(name) {
+  const action = ACTIONS[name];
+  if (!action) return;
+  /* Stop always goes out. Anything that moves the rover is held back while it is offline, so nothing is left queued in the gateway. */
+  if (name !== 'stop' && !state.online) {
+    feedback('warn', `! ${action.label} not sent: ${state.gatewayUp === false ? 'the gateway is unreachable' : 'the rover is offline'}. Stop still works.`);
+    return;
+  }
+  const button = document.querySelector(`#pad [data-act="${name}"]`);
+  if (button) { button.classList.add('pressed'); setTimeout(() => button.classList.remove('pressed'), 160); }
+  if (name === 'stop') { $('stopMain').classList.add('flash'); setTimeout(() => $('stopMain').classList.remove('flash'), 160); }
+  sendCommand(action.text, action.label);
+}
+
+function clearLocalMap() {
+  state.trail = [];
+  state.samples = [];
+  state.view = null;
+  state.lastPoseAt = 0;
+}
+
+async function resetMap(profile) {
+  clearLocalMap();
+  drawMap();
+  try {
+    await request('/api/reset', { profile });
+    feedback('ok', `✓ Map reset ${clock()}. Position estimate restarts at the rover's current spot.`);
+  } catch {
+    feedback('danger', `✕ Map reset NOT sent. Gateway unreachable at ${API}`);
+  }
+}
+
+/* Keep the simulator profile that is running; the real rover ignores it. */
+const currentProfile = () => (state.data && state.data.simulation_profile) || (state.data && state.data.requested_profile) || 'sonar-room';
+
+/* ------------------------------ event log ------------------------------ */
+const seenEvents = new Set();
+function logEvent(e) {
+  const key = `${e.time}:${e.kind}:${e.message}`;
+  if (seenEvents.has(key)) return;
+  seenEvents.add(key);
+  const list = $('events');
+  const empty = list.querySelector('.empty');
+  if (empty) empty.remove();
+  const item = document.createElement('li');
+  const time = document.createElement('time');
+  const kind = document.createElement('span');
+  const msg = document.createElement('span');
+  time.textContent = e.time || '';
+  kind.className = 'kind';
+  kind.dataset.kind = e.kind || '';
+  kind.textContent = e.kind || 'EVENT';
+  msg.className = 'msg';
+  msg.textContent = e.message || '';
+  item.append(time, kind, msg);
+  list.prepend(item);
+  while (list.children.length > 40) list.lastChild.remove();
+}
+
+/* ------------------------------ status ------------------------------ */
+function tuningValue(key) {
+  const saved = state.data && state.data.tuning ? state.data.tuning[key] : undefined;
+  if (num(saved)) return Number(saved);
+  return TUNING.find(t => t.key === key).def;
+}
+
+function setTone(node, tone) { node.dataset.tone = tone || ''; }
+
+function renderConnection(now) {
+  const chip = $('conn'), d = state.data || {};
+  let tone = '', icon = '○', text = 'Connecting…';
+  if (state.gatewayUp === false) { tone = 'danger'; icon = '✕'; text = 'Gateway unreachable'; chip.title = `No answer from ${API}. Is local_gateway_plain.py running?`; }
+  else if (state.gatewayUp && !state.online) {
+    text = 'Rover offline' + (num(d.telemetry_age_s) ? ` · last heard ${Math.round(d.telemetry_age_s)} s ago` : '');
+    chip.title = 'The gateway is running but has no recent telemetry from the rover.';
+  }
+  else if (state.online && num(d.telemetry_age_s)) {      // the gateway says how long the rover has been silent
+    const age = Number(d.telemetry_age_s);
+    if (age > 2.5) { tone = 'warn'; icon = '!'; text = `Rover silent for ${Math.round(age)} s`; chip.title = 'No telemetry is arriving. The rover may have lost power or Wi‑Fi.'; }
+    else { tone = 'ok'; icon = '●'; text = 'Rover online' + (d.network ? ` · ${d.network}` : ''); chip.title = `Gateway ${API}`; }
+  }
+  else if (state.online) {                                 // older gateway: fall back to "nothing changed"
+    const quiet = now - state.lastChangeAt;
+    if (quiet > STALE_AFTER_MS) { tone = 'warn'; icon = '!'; text = `No new telemetry for ${Math.round(quiet / 1000)} s`; chip.title = 'Readings have not changed. The rover may have lost power or Wi‑Fi.'; }
+    else { tone = 'ok'; icon = '●'; text = 'Rover online' + (d.network ? ` · ${d.network}` : ''); chip.title = `Gateway ${API}`; }
+  }
+  setTone(chip, tone);
+  $('connIcon').textContent = icon;
+  $('connText').textContent = text;
+}
+
+function renderStatus() {
+  const d = state.data || {};
+  const online = state.online;
+  const rssi = d.rssi_dbm ?? d.rssi;
+  const front = d.sonar ? d.sonar.front : null;
+  const safe = tuningValue('safe_cm');
+  const target = tuningValue('target_rssi');
+
+  /* mode */
+  let label, why, tone;
+  const mode = String(d.mode || 'IDLE').toUpperCase();
+  if (state.gatewayUp === false) { label = 'No gateway'; why = `Cannot reach ${API}. Start local_gateway_plain.py on this laptop.`; tone = 'danger'; }
+  else if (!online) { label = 'Offline'; why = 'Waiting for the rover to report in. Check its power and that it joined the hotspot.'; tone = 'off'; }
+  else if (MODES[mode]) { [label, why, tone] = MODES[mode]; }
+  else { label = titleCase(mode); why = ''; tone = 'idle'; }
+  if (online && mode === 'BLOCKED' && !num(front)) why = 'The sonar is not responding, so forward moves are refused. Check the sensor wiring.';
+  setTone($('modeTile'), tone);
+  $('modeText').textContent = label;
+  $('modeWhy').textContent = why;
+
+  /* signal */
+  const hasRssi = online && num(rssi);
+  $('rssi').textContent = hasRssi ? `${Math.round(rssi)} dBm` : '—';
+  const bars = hasRssi ? clamp(Math.round((Number(rssi) + 95) / 12), 0, 4) : 0;
+  [...$('meter').children].forEach((n, i) => n.classList.toggle('on', i < bars));
+  if (hasRssi) {
+    const trends = { STRONGER: '↑ stronger', WEAKER: '↓ weaker', STABLE: '→ steady', COLLECTING: '… collecting' };
+    const trend = trends[String(d.signal_trend || '').toUpperCase()] || (d.signal_trend ? titleCase(d.signal_trend) : '');
+    const gap = Math.round(target - Number(rssi));
+    const goal = d.target_nearby ? 'at the target level' : gap > 0 ? `${gap} dB short of “found” (${target})` : `“found” is ${target} dBm`;
+    const dist = num(d.rough_wifi_distance_m) ? ` · roughly ${Number(d.rough_wifi_distance_m).toFixed(1)} m`
+      : num(d.estimated_target_distance_m) ? ` · ${Number(d.estimated_target_distance_m).toFixed(1)} m (simulator)` : '';
+    $('signalDetail').textContent = [trend, goal].filter(Boolean).join(' · ') + dist;
+  } else {
+    $('signalDetail').textContent = 'No reading yet.';
+  }
+  setTone($('signalTile'), online && d.target_nearby ? 'ok' : '');
+
+  /* sonar */
+  let frontText = '—', frontWhy = 'No reading yet.', frontTone = '', blocked = false;
+  if (online) {
+    if (!num(front)) { frontText = 'No sonar'; frontWhy = 'Sensor is not responding. Forward moves are refused.'; frontTone = 'danger'; blocked = true; }
+    else if (Number(front) >= OPEN_CM) { frontText = 'Clear'; frontWhy = 'No echo in range. Angled walls can be missed.'; }
+    else if (Number(front) < safe) { frontText = `${Math.round(front)} cm`; frontWhy = `! Too close (limit ${safe} cm). Forward moves are refused.`; frontTone = 'danger'; blocked = true; }
+    else { frontText = `${Math.round(front)} cm`; frontWhy = `Forward allowed down to ${safe} cm.`; }
+  }
+  $('front').textContent = frontText;
+  $('frontDetail').textContent = frontWhy;
+  setTone($('frontTile'), frontTone);
+
+  /* pose */
+  const p = d.position;
+  const fromCamera = d.pose_source === 'camera';
+  const hasPoseNow = online && p && num(p.x) && num(p.y);
+  $('poseNote').textContent = !hasPoseNow ? 'position is an estimate' : fromCamera ? 'position from camera' : 'position is an estimate, drifts';
+  if (hasPoseNow) {
+    $('pose').textContent = `${Number(p.x).toFixed(2)}, ${Number(p.y).toFixed(2)}`;
+    const odo = [];
+    /* speed and sonar-checked steps describe the rover's own estimate; leave them out while the camera supplies the pose */
+    if (!fromCamera && num(d.speed_cm_s)) odo.push(`${Math.round(d.speed_cm_s)} cm/s`);
+    if (!fromCamera && num(d.odo_fixes)) odo.push(`${d.odo_fixes} step${Number(d.odo_fixes) === 1 ? '' : 's'} sonar-checked`);
+    const source = fromCamera ? 'From overhead camera' : 'Estimate, drifts';
+    $('poseDetail').textContent = `${source} · heading ${num(d.heading) ? Math.round(d.heading) + '°' : '—'} · path ${pathLength().toFixed(1)} m` + (odo.length ? ' · ' + odo.join(' · ') : '');
+  } else {
+    $('pose').textContent = '—';
+    $('poseDetail').textContent = online ? 'The rover reports no position.' : 'Dead reckoning; drifts.';
+  }
+
+  /* hunt badge */
+  const hunt = $('huntState');
+  if (!online) { hunt.textContent = 'Rover offline'; setTone(hunt, ''); }
+  else if (d.target_nearby || mode === 'TARGET_NEARBY') { hunt.textContent = '✓ Phone found'; setTone(hunt, 'ok'); }
+  else if (HUNTING.has(mode)) { hunt.textContent = '▶ Hunting'; setTone(hunt, 'active'); }
+  else { hunt.textContent = 'Not hunting'; setTone(hunt, ''); }
+
+  /* obstacle note next to the pad */
+  const note = $('obstacleNote'), forward = document.querySelector('#pad [data-act="forward"]');
+  forward.classList.toggle('blocked', blocked);
+  forward.querySelector('small').textContent = blocked ? 'blocked' : 'Forward';
+  note.dataset.tone = blocked ? 'danger' : '';
+  note.textContent = !blocked ? '' : num(front)
+    ? `! Obstacle ${Math.round(front)} cm ahead: the rover will refuse to go forward. Back up or turn.`
+    : '! Sonar not responding: the rover will refuse to go forward.';
+
+  /* Offline: everything that moves the rover looks and is unavailable. Stop is never disabled. */
+  document.querySelectorAll('#pad [data-act]:not([data-act="stop"]), #startHunt, #startWifi, #send, #command').forEach(n => { n.disabled = !online; });
+  $('commandNote').textContent = online ? 'find · stop · forward · back · left · right · test · spin' : 'Unavailable while the rover is offline. Stop still works.';
+
+  /* simulator-only profile switch */
+  const sim = !!d.simulation_profile;
+  $('simProfile').hidden = !sim;
+  if (sim) document.querySelectorAll('#simProfile button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.profile === d.simulation_profile)));
+}
+
+function drawSpark() {
+  const canvas = $('spark'), css = getComputedStyle(document.documentElement);
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const hist = state.rssiHistory;
+  if (hist.length < 2) return;
+  const target = tuningValue('target_rssi');
+  const lo = Math.min(...hist, target) - 2, hi = Math.max(...hist, target) + 2;
+  const y = v => h - 2 - (v - lo) / (hi - lo) * (h - 4);
+  ctx.strokeStyle = css.getPropertyValue('--map-axis');
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, y(target)); ctx.lineTo(w, y(target)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = css.getPropertyValue('--accent');
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  hist.forEach((v, i) => { const x = i / (hist.length - 1) * w; i ? ctx.lineTo(x, y(v)) : ctx.moveTo(x, y(v)); });
+  ctx.stroke();
+}
+
+/* ------------------------------ map ------------------------------ */
+function pathLength() {
+  let total = 0;
+  for (let i = 1; i < state.trail.length; i++) {
+    if (state.trail[i].brk) continue;                       // a jump (pose source changed), not distance driven
+    total += Math.hypot(state.trail[i].x - state.trail[i - 1].x, state.trail[i].y - state.trail[i - 1].y);
+  }
+  return total;
+}
+
+const validPoint = p => p && num(p.x) && num(p.y);
+
+/* Where the sonar beam ends, in metres: the simulator gives the hit; for the real rover derive it from the range. */
+function beamEnd(d) {
+  const p = d.position, scan = d.scan || {};
+  if (validPoint(scan.hit)) return { x: Number(scan.hit.x), y: Number(scan.hit.y) };
+  const cm = num(scan.distance_cm) ? Number(scan.distance_cm) : (d.sonar && num(d.sonar.front) ? Number(d.sonar.front) : null);
+  if (cm === null || cm >= OPEN_CM || scan.valid_return === false || !num(d.heading)) return null;
+  const bearing = (Number(d.heading) + Number(scan.relative_angle || 0)) * Math.PI / 180;
+  return { x: Number(p.x) + cm / 100 * Math.cos(bearing), y: Number(p.y) + cm / 100 * Math.sin(bearing) };
+}
+
+/* Fit the view to everything known. It only grows (snapped to 0.5 m) so the map does not jitter. */
+function updateView(d, hasPose) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (x, y) => { x = Number(x); y = Number(y); if (Number.isFinite(x) && Number.isFinite(y)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } };
+  if (hasPose) add(d.position.x, d.position.y);
+  if (state.room) { add(state.room.left, state.room.bottom); add(state.room.right, state.room.top); }   // whole room visible from the start
+  state.trail.forEach(p => add(p.x, p.y));
+  (d.points || []).forEach(p => add(p.x, p.y));
+  if (d.room_bounds) { add(d.room_bounds.left, d.room_bounds.bottom); add(d.room_bounds.right, d.room_bounds.top); }
+  if (validPoint(d.target_position)) add(d.target_position.x, d.target_position.y);
+  const end = hasPose ? beamEnd(d) : null;
+  if (end) add(end.x, end.y);
+  if (x0 === Infinity) return;
+  const margin = 0.3;
+  x0 -= margin; x1 += margin; y0 -= margin; y1 += margin;
+  const v = state.view;
+  if (v) { x0 = Math.min(x0, v.x0); x1 = Math.max(x1, v.x1); y0 = Math.min(y0, v.y0); y1 = Math.max(y1, v.y1); }
+  const snap = 0.5, minSpan = 2;
+  x0 = Math.floor(x0 / snap) * snap; x1 = Math.ceil(x1 / snap) * snap;
+  y0 = Math.floor(y0 / snap) * snap; y1 = Math.ceil(y1 / snap) * snap;
+  if (x1 - x0 < minSpan) { const c = (x0 + x1) / 2; x0 = c - minSpan / 2; x1 = c + minSpan / 2; }
+  if (y1 - y0 < minSpan) { const c = (y0 + y1) / 2; y0 = c - minSpan / 2; y1 = c + minSpan / 2; }
+  state.view = { x0, x1, y0, y1 };
+}
+
+function wifiColour(rssi) {
+  const stops = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+  const t = clamp((rssi + 90) / 48, 0, 1) * (stops.length - 1);
+  const i = Math.min(Math.floor(t), stops.length - 2), f = t - i;
+  const c = stops[i].map((a, k) => Math.round(a + (stops[i + 1][k] - a) * f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function drawMap() {
+  const canvas = $('map'), body = $('mapBody'), d = state.data || {};
+  const dpr = window.devicePixelRatio || 1, W = body.clientWidth, H = body.clientHeight;
+  if (!W || !H) return;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement);
+  const colour = name => css.getPropertyValue(name).trim();
+
+  const empty = $('mapEmpty');
+  const hasPose = state.online && validPoint(d.position);
+  empty.hidden = hasPose;
+  empty.classList.toggle('compact', !!state.room);
+  if (!hasPose) {
+    empty.textContent = state.gatewayUp === false ? 'Gateway unreachable. The map appears when telemetry arrives.'
+      : !state.online ? 'Waiting for rover telemetry. The map builds as the rover moves.'
+      : 'The rover is online but reports no position, so there is no map.';
+    $('mapCount').textContent = '';
+    if (!state.room) return;                 // nothing to draw; with a floor plan, show the room while waiting
+  }
+  updateView(d, hasPose);
+  const v = state.view, pad = 34;
+  if (!v) return;
+  const scale = Math.min((W - 2 * pad) / (v.x1 - v.x0), (H - 2 * pad) / (v.y1 - v.y0));
+  const ox = W / 2 - (v.x0 + v.x1) / 2 * scale, oy = H / 2 + (v.y0 + v.y1) / 2 * scale;
+  const X = x => ox + Number(x) * scale, Y = y => oy - Number(y) * scale;   // map y points up
+  const wifiLayer = state.layer === 'wifi';
+  const openRoom = d.simulation_profile === 'wifi-open-room';
+
+  /* floor plan underlay: same world-to-screen transform as everything else, so it stays registered as the view grows */
+  const room = state.room;
+  if (room && state.roomVisible) {
+    ctx.globalAlpha = room.opacity;
+    ctx.drawImage(room.img, X(room.left), Y(room.top), (room.right - room.left) * scale, (room.top - room.bottom) * scale);
+    ctx.globalAlpha = 1;
+  }
+
+  /* grid with metre labels */
+  const step = [0.25, 0.5, 1, 2, 5, 10].find(s => s * scale >= 46) || 20;
+  const fmt = n => (Math.abs(n) < 1e-9 ? '0' : step < 1 ? n.toFixed(step < 0.5 ? 2 : 1) : String(Math.round(n)));
+  ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+  ctx.lineWidth = 1;
+  for (let gx = Math.ceil((0 - ox) / scale / step) * step; X(gx) <= W; gx += step) {
+    const px = Math.round(X(gx)) + 0.5, zero = Math.abs(gx) < 1e-9;
+    ctx.strokeStyle = colour(zero ? '--map-axis' : '--map-grid');
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    if (px > 30 && px < W - 16) { ctx.fillStyle = colour('--muted'); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(gx), px, H - 4); }
+  }
+  for (let gy = Math.ceil((oy - H) / scale / step) * step; Y(gy) >= 0; gy += step) {
+    const py = Math.round(Y(gy)) + 0.5, zero = Math.abs(gy) < 1e-9;
+    ctx.strokeStyle = colour(zero ? '--map-axis' : '--map-grid');
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    if (py > 10 && py < H - 20) { ctx.fillStyle = colour('--muted'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(fmt(gy), 5, py); }
+  }
+
+  /* simulator room */
+  if (d.room_bounds) {
+    const b = d.room_bounds;
+    ctx.strokeStyle = colour('--map-wall'); ctx.lineWidth = 2;
+    ctx.strokeRect(X(b.left), Y(b.top), (b.right - b.left) * scale, (b.top - b.bottom) * scale);
+  }
+  if (!openRoom && !wifiLayer) {
+    ctx.fillStyle = colour('--map-wall');
+    (d.room_obstacles || []).forEach(w => ctx.fillRect(X(w.left), Y(w.top), (w.right - w.left) * scale, (w.top - w.bottom) * scale));
+  }
+
+  /* start marker */
+  ctx.strokeStyle = colour('--muted'); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(X(0) - 5, Y(0)); ctx.lineTo(X(0) + 5, Y(0)); ctx.moveTo(X(0), Y(0) - 5); ctx.lineTo(X(0), Y(0) + 5); ctx.stroke();
+
+  /* sonar returns or Wi-Fi samples */
+  const points = (d.points || []).filter(validPoint);
+  if (wifiLayer) {
+    let best = null;
+    state.samples.forEach(s => {
+      ctx.globalAlpha = 0.85; ctx.fillStyle = wifiColour(s.rssi);
+      ctx.beginPath(); ctx.arc(X(s.x), Y(s.y), 7, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(20,30,50,.45)'; ctx.lineWidth = 1; ctx.stroke();
+      if (!best || s.rssi > best.rssi) best = s;
+    });
+    if (best && state.samples.length > 1) {
+      ctx.strokeStyle = colour('--text'); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X(best.x), Y(best.y), 11, 0, Math.PI * 2); ctx.stroke();
+      /* keep the label clear of the rover marker, which often sits on the strongest sample */
+      const nearRover = hasPose && Math.hypot(X(best.x) - X(d.position.x), Y(best.y) - Y(d.position.y)) < 30;
+      ctx.fillStyle = colour('--text'); ctx.textAlign = 'left'; ctx.textBaseline = nearRover ? 'top' : 'bottom';
+      ctx.fillText(`strongest ${Math.round(best.rssi)} dBm`, X(best.x) + (nearRover ? 20 : 13), Y(best.y) + (nearRover ? 14 : -4));
+    }
+  } else {
+    ctx.fillStyle = colour('--map-point');
+    points.slice(-600).forEach(p => { ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 2.5, 0, Math.PI * 2); ctx.fill(); });
+  }
+
+  /* path */
+  if (state.trail.length > 1) {
+    ctx.strokeStyle = colour('--accent'); ctx.lineWidth = 2; ctx.setLineDash([7, 5]); ctx.lineJoin = 'round';
+    ctx.beginPath();
+    state.trail.forEach((p, i) => (i && !p.brk ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  const rx = hasPose ? X(d.position.x) : 0, ry = hasPose ? Y(d.position.y) : 0;
+
+  /* sonar beam */
+  const end = wifiLayer || !hasPose ? null : beamEnd(d);
+  if (end) {
+    ctx.globalAlpha = 0.6; ctx.strokeStyle = colour('--accent'); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(X(end.x), Y(end.y)); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fillStyle = colour('--accent');
+    ctx.beginPath(); ctx.arc(X(end.x), Y(end.y), 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* phone / person (simulator knows where it is) */
+  if (validPoint(d.target_position)) {
+    const tx = X(d.target_position.x), ty = Y(d.target_position.y);
+    ctx.fillStyle = colour('--accent-soft'); ctx.strokeStyle = colour('--accent'); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(tx, ty, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = colour('--accent'); ctx.beginPath(); ctx.arc(tx, ty, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = colour('--text'); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('phone', tx, ty - 14);
+  }
+
+  /* rover: heading is counter-clockwise from +x, and screen y is flipped */
+  if (hasPose) {
+    const heading = Number(d.heading || 0) * Math.PI / 180;
+    const hx = Math.cos(heading), hy = -Math.sin(heading);
+    ctx.fillStyle = colour('--accent');
+    ctx.beginPath();
+    ctx.moveTo(rx + hx * 24, ry + hy * 24);
+    ctx.lineTo(rx + hx * 9 - hy * 8, ry + hy * 9 + hx * 8);
+    ctx.lineTo(rx + hx * 9 + hy * 8, ry + hy * 9 - hx * 8);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = colour('--map-rover'); ctx.strokeStyle = colour('--map-bg'); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rx, ry, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+
+  /* scale bar */
+  const barPx = step * scale, bx = W - 14 - barPx, by = H - 26;
+  ctx.fillStyle = colour('--map-bg'); ctx.globalAlpha = 0.85; ctx.fillRect(bx - 8, by - 18, barPx + 16, 28); ctx.globalAlpha = 1;
+  ctx.strokeStyle = colour('--text'); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by); ctx.lineTo(bx + barPx, by); ctx.lineTo(bx + barPx, by - 4); ctx.stroke();
+  ctx.fillStyle = colour('--text'); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(step < 1 ? `${step * 100} cm` : `${step} m`, bx + barPx / 2, by - 4);
+
+  if (hasPose) $('mapCount').textContent = (wifiLayer ? `${state.samples.length} signal samples` : `${points.length} sonar returns`) + ' · ';
+}
+
+function setLayer(layer) {
+  state.layer = layer;
+  document.querySelectorAll('[data-layer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.layer === layer)));
+  document.querySelectorAll('.map-foot [data-for]').forEach(n => { n.hidden = n.dataset.for !== layer; });
+  $('map').setAttribute('aria-label', layer === 'wifi' ? 'Top-down map of Wi‑Fi signal samples along the rover path' : 'Top-down map of the rover path and sonar returns');
+  drawMap();
+}
+
+/* ------------------------------ polling ------------------------------ */
+function ingest(d, pollStartedAt) {
+  const now = Date.now();
+  state.data = d;
+  state.online = !!d.connected;
+
+  /* Someone reset the map (this console, another laptop, or the simulator starting). */
+  if (state.resetToken !== undefined && d.reset_token !== state.resetToken) clearLocalMap();
+  state.resetToken = d.reset_token;
+
+  const print = JSON.stringify([d.mode, d.rssi_dbm, d.sonar, d.position, d.heading, d.scan, d.connected]);
+  if (print !== state.fingerprint) { state.fingerprint = print; state.lastChangeAt = now; }
+
+  const rssi = d.rssi_dbm ?? d.rssi;
+  if (state.online && num(rssi)) { state.rssiHistory.push(Number(rssi)); if (state.rssiHistory.length > 150) state.rssiHistory.shift(); }
+
+  if (state.online && validPoint(d.position)) {
+    const p = { x: Number(d.position.x), y: Number(d.position.y) };
+    const last = state.trail[state.trail.length - 1];
+    const moved = last ? Math.hypot(last.x - p.x, last.y - p.y) : 0;
+    /* More than JUMP_M between two polls is not driving: the pose source flipped (camera <-> estimate). Start a new segment.
+       The allowance grows with the time since the last poll, so a throttled background tab does not chop up a real path. */
+    const jump = moved > Math.max(JUMP_M, MAX_SPEED_M_S * (now - (state.lastPoseAt || now)) / 1000);
+    state.lastPoseAt = now;
+    if (!last || moved > 0.03) { state.trail.push({ ...p, brk: jump }); if (state.trail.length > 800) state.trail.shift(); }
+    if (num(rssi)) {
+      const lastSample = state.samples[state.samples.length - 1];
+      if (!lastSample || Math.hypot(lastSample.x - p.x, lastSample.y - p.y) > 0.025) { state.samples.push({ x: p.x, y: p.y, rssi: Number(rssi) }); if (state.samples.length > 400) state.samples.shift(); }
+    }
+  }
+  (d.events || []).slice().reverse().forEach(logEvent);
+  trackAck(d, pollStartedAt);
+}
+
+function renderAll() {
+  renderConnection(Date.now());
+  renderStatus();
+  drawSpark();
+  drawMap();
+  syncTuning();
+}
+
+async function poll() {
+  try {
+    const startedAt = Date.now();
+    ingest(await request('/api/state', undefined, 2000), startedAt);
+    state.gatewayUp = true;
+  } catch {
+    state.gatewayUp = false;
+    state.online = false;
+  }
+  renderAll();
+  setTimeout(poll, POLL_MS);
+}
+
+/* ------------------------------ tuning ------------------------------ */
+const tuneRows = {};
+let sliderPointerDown = false;
+
+function tuneStatus(tone, text) { const n = $('tuneStatus'); n.dataset.tone = tone; n.textContent = text; }
+
+function paintTuneRow(t) {
+  const row = tuneRows[t.key], value = Number(row.input.value);
+  row.output.textContent = value + t.unit;
+  const changed = value !== t.def;
+  row.reset.hidden = !changed;
+  row.reset.textContent = `↺ ${t.def}`;
+  row.reset.title = `Changed. Reset to the default, ${t.def}${t.unit}`;
+  row.reset.setAttribute('aria-label', `Reset ${t.label} to the default, ${t.def}${t.unit}`);
+}
+
+async function sendTuning(values, message) {
+  const now = Date.now();
+  Object.keys(values).forEach(k => { state.tuningPending[k] = now; });
+  try {
+    await request('/api/tuning', values);
+    tuneStatus('ok', `✓ ${message} Saved ${clock()}.`);
+  } catch {
+    tuneStatus('danger', `✕ NOT saved. Gateway unreachable at ${API}`);
+  }
+}
+
+function buildTuning() {
+  const list = $('tune');
+  for (const t of TUNING) {
+    const row = document.createElement('div');
+    row.className = 'tune-row';
+    const id = 'tune-' + t.key;
+    row.innerHTML = `<div class="tune-top"><label for="${id}"></label><span class="tune-val"><button type="button" hidden></button><output for="${id}"></output></span></div>
+      <div class="tune-hint"></div>
+      <input type="range" id="${id}" min="${t.min}" max="${t.max}" step="${t.step}" value="${t.def}">`;
+    row.querySelector('label').textContent = t.label;
+    row.querySelector('.tune-hint').textContent = t.hint;
+    const input = row.querySelector('input'), output = row.querySelector('output'), reset = row.querySelector('.tune-val button');
+    tuneRows[t.key] = { input, output, reset };
+    input.addEventListener('input', () => paintTuneRow(t));
+    input.addEventListener('pointerdown', () => { sliderPointerDown = true; });
+    input.addEventListener('change', () => {
+      sendTuning({ [t.key]: Number(input.value) }, `${t.label} = ${input.value}${t.unit}.`);
+      /* After a mouse drag, give the keyboard back to driving. Keyboard users keep focus on the slider. */
+      if (sliderPointerDown) input.blur();
+      sliderPointerDown = false;
+    });
+    reset.addEventListener('click', () => { input.value = t.def; paintTuneRow(t); sendTuning({ [t.key]: t.def }, `${t.label} back to ${t.def}${t.unit}.`); });
+    list.appendChild(row);
+    paintTuneRow(t);
+  }
+  $('tuneReset').addEventListener('click', () => {
+    const values = {};
+    for (const t of TUNING) { values[t.key] = t.def; tuneRows[t.key].input.value = t.def; paintTuneRow(t); }
+    sendTuning(values, 'All settings back to defaults.');
+  });
+}
+window.addEventListener('pointerup', () => { setTimeout(() => { sliderPointerDown = false; }, 0); });
+
+/* Show what the gateway holds (another laptop may have changed it), without fighting a slider in use. */
+function syncTuning() {
+  if (!state.gatewayUp || !state.data) return;
+  const now = Date.now();
+  for (const t of TUNING) {
+    const row = tuneRows[t.key];
+    if (document.activeElement === row.input || sliderPointerDown) continue;
+    if (now - (state.tuningPending[t.key] || 0) < 1500) continue;
+    const value = tuningValue(t.key);
+    if (Number(row.input.value) !== value) { row.input.value = value; paintTuneRow(t); }
+  }
+}
+
+/* ------------------------------ keyboard ------------------------------ */
+const isTyping = el => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && el.type !== 'range'));
+
+function updateKeyHint() {
+  const el = document.activeElement, typing = isTyping(el), slider = el && el.tagName === 'INPUT' && el.type === 'range';
+  $('keys').classList.toggle('paused', typing || slider);
+  $('keysText').textContent = typing ? 'Typing: keys paused (Esc to leave) ·' : slider ? 'Slider focused: arrows adjust it (Esc to leave) ·' : 'Drive';
+}
+document.addEventListener('focusin', updateKeyHint);
+document.addEventListener('focusout', () => setTimeout(updateKeyHint, 0));
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const el = document.activeElement;
+  if (isTyping(el)) {
+    if (e.key === 'Escape') el.blur();
+    return;                                   // never drive or stop from the text box
+  }
+  const onSlider = el && el.tagName === 'INPUT' && el.type === 'range';
+  if (e.code === 'Space') {                   // Space is always Stop, even with a button or slider focused
+    e.preventDefault();
+    if (!e.repeat) act('stop');
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (onSlider) { el.blur(); return; }
+    if (!e.repeat) act('stop');
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('command').focus(); return; }
+  if (onSlider || sliderPointerDown) return;  // arrows belong to the slider
+  const name = KEYS[e.code];
+  if (!name) return;
+  e.preventDefault();
+  if (!e.repeat) act(name);                   // one move per key press; holding does not repeat
+});
+/* Buttons "click" on Space key-up; swallow it so Space only ever means Stop. */
+document.addEventListener('keyup', e => { if (e.code === 'Space' && !isTyping(document.activeElement)) e.preventDefault(); });
+
+/* ------------------------------ wiring ------------------------------ */
+document.querySelectorAll('#pad [data-act]').forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
+$('stopMain').addEventListener('click', () => act('stop'));
+$('startHunt').addEventListener('click', () => act('hunt'));
+$('startWifi').addEventListener('click', async () => { setLayer('wifi'); await resetMap('wifi-open-room'); act('wifi'); });
+$('resetMap').addEventListener('click', () => resetMap(currentProfile()));
+document.querySelectorAll('#simProfile button').forEach(b => b.addEventListener('click', () => resetMap(b.dataset.profile)));
+document.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => setLayer(b.dataset.layer)));
+
+function sendTyped() {
+  const input = $('command'), text = input.value.trim();
+  if (!text) return;
+  if (!state.online && !/stop|halt/i.test(text)) { feedback('warn', '! Not sent: the rover is offline. Stop still works.'); return; }
+  input.value = '';
+  sendCommand(text, 'Text command', true);
+}
+$('send').addEventListener('click', sendTyped);
+$('command').addEventListener('keydown', e => { if (e.key === 'Enter') sendTyped(); });
+
+/* Optional floor plan: room.json next to this page, e.g.
+   {"image": "room.png", "left": -0.5, "bottom": -0.3, "right": 3.2, "top": 2.4, "opacity": 0.6}
+   The four numbers are the floor coordinates (metres, y up) of the image edges. Missing or broken file = no underlay, silently. */
+async function loadRoom() {
+  try {
+    const res = await fetch('room.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const r = await res.json();
+    const edges = ['left', 'bottom', 'right', 'top'].map(k => Number(r[k]));
+    if (typeof r.image !== 'string' || !r.image || !edges.every(Number.isFinite) || edges[2] <= edges[0] || edges[3] <= edges[1]) return;
+    const img = new Image();
+    img.onload = () => {
+      state.room = { img, left: edges[0], bottom: edges[1], right: edges[2], top: edges[3], opacity: num(r.opacity) ? clamp(Number(r.opacity), 0, 1) : 0.6 };
+      $('roomToggle').hidden = false;
+      drawMap();
+    };
+    img.src = new URL(r.image, location.href).href;
+  } catch { /* no floor plan */ }
+}
+$('roomToggle').addEventListener('click', () => {
+  state.roomVisible = !state.roomVisible;
+  $('roomToggle').setAttribute('aria-pressed', String(state.roomVisible));
+  $('roomToggle').textContent = state.roomVisible ? '✓ Floor plan' : 'Floor plan off';
+  drawMap();
+});
+
+new ResizeObserver(() => { drawMap(); drawSpark(); }).observe($('mapBody'));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderAll);
+
+buildTuning();
+loadRoom();
+updateKeyHint();
+poll();
 </script>
 </body>
 </html>

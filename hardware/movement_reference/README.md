@@ -12,3 +12,7 @@ and sonar wiring:
 
 The active Wi-Fi seeker is in `../wayfinder_rover/wayfinder_rover.ino` and
 uses the same wiring.
+
+Do not use this sketch on the floor. It is kept for its pin wiring only: it
+runs the motors at full power, its manual moves have no time limit, and a
+sonar that does not answer reads as clear.

@@ -9,3 +9,6 @@ wokwi-esp32/.vscode/ipch/
 
 # Local Wi-Fi credentials for the physical rover
 hardware/wayfinder_rover/secrets.h
+
+# Per-setup floor calibration written by camera_tracker.py
+camera_calibration.json

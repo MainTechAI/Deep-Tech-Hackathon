@@ -54,9 +54,13 @@ boards and charged 18650 cells.
 - **The assembled rover uses the chassis DC motors through an L298N**, not the 28BYJ-48 steppers
   from the PDF. Active firmware: `hardware/wayfinder_rover/`.
 - **PWM on the R4 is only on D3, D5, D6, D9, D10, D11.** The L298N enable pins must be on those.
-- **Motors keep running through blocking calls.** Timed moves overrun if the loop blocks (HTTP,
-  long `pulseIn`), so only talk to the backend while the rover is stopped.
-- No encoders or IMU: distances and turn angles are open-loop timings at a chosen PWM duty.
+- **Motors keep running through blocking calls.** `WiFi.status()`, `WiFi.RSSI()` and HTTP all block,
+  so the firmware makes no Wi-Fi calls while a move is running; keep it that way.
+- **Space HC-SR04 pings at least 50 ms apart.** Faster, it hears late echoes of the previous ping
+  and reports false short distances.
+- No encoders or IMU: the pose is dead-reckoned from move timings, with forward travel corrected
+  from the change in sonar reading when there is a steady echo ahead. Heading is uncorrected.
+- Rover settings are tuned live from the console sliders (`/api/tuning`), not by re-uploading.
 - The sonar is fixed facing forward; the rover turns its body to look around.
 
 ## Pin plan
@@ -69,11 +73,15 @@ boards and charged 18650 cells.
 
 ## Open questions
 
-- `DRIVE_DUTY`, `TURN_DUTY` and the step and turn timings are unmeasured starting values.
+- `turn_rate` (degrees per second) has not been re-measured since the motor brake was added; the
+  1 s spin test sets it.
+- `SONAR_OFFSET_CM` (sonar face ahead of the turning centre) is an estimate.
 
 ## Working notes
 
 - Development is on macOS (Apple Silicon); the board appears as `/dev/cu.usbmodem*`.
+- Run the console with `python3 local_gateway_plain.py` (port 8000) and
+  `python3 -m http.server 5173 --directory prototype`; the rover and this Mac must share the hotspot.
 - `hardware/wayfinder_rover/secrets.h` is git-ignored (hotspot credentials, backend address, RSSI
   calibration). Without it the firmware builds with placeholder values and cannot join Wi-Fi.
 

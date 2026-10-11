@@ -155,7 +155,8 @@ class RoomSimulator:
             self.configure_world(packet.get("requested_profile", "sonar-room"))
             self.reset_pose()
         plan = packet.get("plan") or {}
-        signature = json.dumps(plan, sort_keys=True)
+        # The id changes with every operator command, so a repeated action is not ignored.
+        signature = json.dumps([packet.get("command_id"), plan], sort_keys=True)
         if not plan or signature == self.last_command:
             return
         self.last_command = signature

@@ -23,7 +23,7 @@ keep a physical way to remove motor power during tuning.
 3. Find the laptop's hotspot IPv4 address and place it in
    `WAYFINDER_BACKEND_HOST`.
 4. Run the backend, then upload `wayfinder_rover.ino`.
-5. The dashboard should show **Rover online**, Wi-Fi RSSI, and Front range.
+5. The console should show **Rover online**, the Wi-Fi signal and the sonar distance ahead.
 
 The backend already listens on the local network; Windows Firewall may ask to
 allow Python on private networks.
@@ -48,19 +48,22 @@ those values exist only in the ignored `secrets.h` file.
 
 - **Start hunt** — asks the rover to search for the known hotspot while using
   the front sonar as a collision guard.
-- **Pause** — sends an immediate stop request.
+- **STOP** (top bar, pad centre, Space or Esc) — sends a stop request. It is
+  picked up when the current move ends, at most about a second later.
 
 ### Manual control and live tuning
 
-The Dashboard's **Manual control** card has a direction pad (one move per
+The **Manual** card has a direction pad, also on WASD and the arrow keys (one move per
 press, repeats allowed), a stop button and a **1 s run** that drives forward
 for one second so the speed can be measured.
 
-The sliders under the pad change rover settings without re-uploading: drive
-power, forward step, pause after each move, turn length, obstacle distance,
-left wheel power and the "found" signal level. The console posts them to
-`/api/tuning`; the rover reads them with its next command poll. They are held
-by the gateway, so they reset to the firmware defaults when it restarts.
+The sliders change rover settings without re-uploading: drive power, forward
+step, pause after each move, manual turn and hunt turn in degrees, turn rate,
+obstacle distance, left wheel power and the "found" signal level. The console
+posts them to `/api/tuning`; the rover reads them from the gateway's next reply. They are held
+by the gateway. If the gateway restarts, the console shows the defaults again
+but the rover keeps the values it last received until it reboots or a slider is
+moved; press "Reset to defaults" to bring the two back in line.
 
 ### Arduino Serial Monitor (115200 baud)
 
@@ -70,12 +73,12 @@ by the gateway, so they reset to the firmware defaults when it restarts.
 
 ### Backend actions
 
-The rover polls `/api/device/command`; accepted actions are `explore`,
-`wifi_hunt`, `forward`, `forward_1s`, `backward`, `left`, `right`, `scan`, and
-`stop`. Each operator command gets a new `command_id`; the rover acts when the
-id changes, so the same action can be sent twice.
-Frontend language requests are converted to one of those actions by the local
-gateway. The Arduino posts telemetry to `/api/telemetry`.
+The rover posts telemetry to `/api/telemetry` and reads the pending command,
+tuning and reset token from the reply, so one round trip does both. Actions are
+`explore`, `wifi_hunt`, `forward`, `forward_1s`, `spin_1s`, `backward`, `left`,
+`right`, `scan`, and `stop`. Each operator command gets a new `command_id`; the
+rover acts when the id changes, so the same action can be sent twice. Text the
+gateway does not recognise is rejected and never reaches the rover.
 
 ## Wi-Fi signal calibration
 
@@ -89,26 +92,68 @@ Send `s` to print the current connection, filtered RSSI, and rover mode.
 
 The telemetry field `rough_wifi_distance_m` is only a rough signal estimate.
 Walls, people and phone orientation affect it substantially, so autonomous
-movement relies on whether the filtered signal gets stronger after each short
-step, not on that number as a precise distance.
+movement relies on how the signal changes between stops (see Behaviour), not on
+that number as a precise distance.
 
 ## Behaviour
 
-`Find WAYFINDER_PLAYER` or `Go to the hotspot` starts the hunt. The rover takes
-short forward steps, keeps a direction when RSSI improves, backs up and turns
-when it worsens, and stops near a strong signal. A front obstacle prevents
-forward motion. No echo counts as open space (reported as 350 cm), so a surface
-that deflects the ping, such as a wall at a steep angle, can be missed. Only a
-sonar that does not respond at all blocks forward motion. With one fixed front sonar, it cannot
-know which side is genuinely clear; turns alternate as a conservative escape.
+`Find WAYFINDER_PLAYER` or `Go to the hotspot` starts the hunt. It is a
+run-and-tumble search: the rover takes short forward steps along a heading
+while the signal holds up, and turns right by `hunt_turn_deg` when the signal
+falls clearly (4 dB) below the best it saw on that heading. One antenna gives
+no bearing, so direction only shows up as a change in signal after moving.
+After every move it stands still, averages several RSSI samples taken at that
+spot, and only then decides. It stops when the average reaches `target_rssi`.
 
-There are no encoders or IMU. The rover estimates its position and heading by
-dead reckoning: it adds up how long each move ran at `FORWARD_CM_PER_S` and
-`TURN_DEG_PER_S`, and sends that with every sonar return so the console can
-draw a map while it drives. Those two rates are estimates, wheel slip is not
-seen, and the error grows with every move, so read the map as a rough sketch,
-not SLAM. The console's reset button clears the map and restarts the estimate
-at the rover's current spot. `LEFT_TRIM` / `RIGHT_TRIM` balance the wheels.
+A front obstacle closer than `safe_cm` makes it back up and turn right by about
+70 degrees. No echo counts as open space (reported as 350 cm), so a surface
+that deflects the ping, such as a wall at a steep angle, can be missed. Only a
+sonar that does not respond at all blocks forward motion.
+
+If the rover cannot reach the gateway for six seconds during a hunt, it stops,
+because nobody could tell it to.
+
+## Timing rules in the firmware
+
+Wi-Fi calls (`WiFi.status()`, `WiFi.RSSI()`, HTTP) block for tens of
+milliseconds to a second, and the motors keep running through them. So while a
+move is running the loop only watches the clock and, when driving forward,
+pings the sonar. Everything else happens at a standstill. Moves end with a
+short motor brake so they stop in the same place every time.
+
+Pings are spaced at least 50 ms apart. Fired faster, the HC-SR04 hears late
+echoes of its previous ping and reports false short distances.
+
+## Position and map
+
+There are no encoders or IMU. The rover dead-reckons its pose:
+
+- **Turns** are integrated from the clock at `turn_rate` degrees per second.
+  Nothing corrects them, so heading is where the map drifts.
+- **Straight moves** are integrated from the clock, then corrected: if there
+  was a steady echo ahead before the move and there is one after it, the change
+  in the sonar reading is the distance really covered and replaces the guess.
+  A wildly different value (someone walked past) is ignored. Each accepted
+  measurement also nudges the assumed speed, so steps taken in open space get
+  better too. Telemetry reports `speed_cm_s` and `odo_fixes`.
+
+Each report sends the pose and the sonar return measured from the turning
+centre (the sonar sits about 9 cm ahead of it; `SONAR_OFFSET_CM` is an
+estimate). The gateway turns returns into map points, merges near-duplicates,
+and deletes older points that a newer reading sees straight through, which
+removes ghosts left by drift and by people walking past. Returns beyond 2 m are
+not mapped. The console's reset clears the map and restarts the pose at the
+rover's current spot. Read the result as a sketch, not SLAM.
+
+## Calibration
+
+Two one-second tests, both on the console's manual pad:
+
+- **1 s run** (`test`): measure the centimetres covered. This set
+  `FORWARD_CM_PER_S` (30 cm at duty 110); sonar-measured steps refine it.
+- **1 s spin** (`spin`): estimate the degrees turned and set the `turn_rate`
+  slider to that number. This is the calibration that matters most for the
+  map. It has not been redone since the motor brake was added.
 
 ## Field-test status — 10 October 2026
 
@@ -117,9 +162,9 @@ telemetry to the laptop, measured RSSI and returned valid fixed-sonar readings.
 The measured RSSI was about **-60 dBm** at roughly three metres and **-43 dBm**
 when the phone was close. The one-metre calibration measured **-53.7 dBm**.
 
-Autonomous movement is currently **not safe to use**. During testing, the rover
-could rotate continuously and collide with objects. The latest safe action was
-`Stop`, which telemetry confirmed. Before another autonomous hunt, validate
-motor direction, shorten motion pulses and verify each manual direction with
-wheels raised. The complete test record and recovery checklist are in
-[`TODO.md`](TODO.md).
+The continuous spinning seen in the first autonomous tests was traced to a
+broken D10 -> IN2 jumper, enable pins without PWM, moves overrunning during
+HTTP calls and commands the firmware could not parse; all four were fixed and
+checked on the floor. The firmware has since been reworked again and that
+version has not yet run on the rover, so start with the wheels raised and work
+through the checklist in [`TODO.md`](TODO.md).
