@@ -387,14 +387,29 @@ class Brain:
         bx, by = self.robot.x - d * math.cos(a), self.robot.y - d * math.sin(a)
         return 5 < bx < self.grid.w_cm - 5 and 5 < by < self.grid.h_cm - 5
 
+    def _next_index(self, p):
+        """Index of the next path corner the robot still has to reach. A corner counts as
+        passed when the robot is close to it OR already beyond it along its segment - so a
+        corner missed to the side doesn't make the robot turn back for it."""
+        rx, ry = self.robot.x, self.robot.y
+        k = 1
+        while k < len(p) - 1:
+            (ax, ay), (bx, by) = p[k - 1], p[k]
+            vx, vy = bx - ax, by - ay
+            L2 = vx * vx + vy * vy
+            u = ((rx - ax) * vx + (ry - ay) * vy) / L2 if L2 > 1e-6 else 1.0
+            if u >= 1.0 or math.hypot(bx - rx, by - ry) < C.CORNER_SKIP:
+                k += 1
+            else:
+                break
+        return min(k, len(p) - 1)
+
     def _remaining_path(self, target):
         """The current route from where the robot is now, ending at the current target."""
         p = self.path
-        i = next((k for k in range(1, len(p))
-                  if math.hypot(p[k][0] - self.robot.x, p[k][1] - self.robot.y) > 6), None)
-        if i is None:
+        if len(p) < 2:
             return None
-        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[i:]]
+        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[self._next_index(p):]]
         if math.hypot(rest[-1][0] - target[0], rest[-1][1] - target[1]) > 10:
             return None      # the target moved (follow mode): take the new route
         return rest
@@ -402,11 +417,7 @@ class Brain:
     def _next_corner(self):
         """Polyline mode: aim straight at the next corner of the planned path."""
         p = self.path
-        for q in p[1:]:
-            # skip tiny kinks: aiming at a corner a few cm away makes the robot turn for nothing
-            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > C.CORNER_SKIP:
-                return q
-        return p[-1]
+        return p[self._next_index(p)] if len(p) > 1 else p[-1]
 
     def _follow_path(self, dist_goal):
         lx, ly = self._next_corner() if C.STEER_GAIN <= 0 else self._lookahead()
@@ -416,13 +427,21 @@ class Brain:
         # until within ALIGN_DEG, then drive straight again
         ts = self.turn_state
         settled = ts is None or now() >= ts["until"]
-        if abs(err) > C.TURN_IN_PLACE_DEG:
+        # near the arena edge a wide tolerance lets a straight run drift outside: be strict there
+        x, y, W, H = self.robot.x, self.robot.y, self.grid.w_cm, self.grid.h_cm
+        near_edge = min(x, W - x, y, H - y) < C.FENCE_CM + 10
+        turn_lim = min(C.TURN_IN_PLACE_DEG, C.EDGE_TURN_DEG) if near_edge else C.TURN_IN_PLACE_DEG
+        align_lim = min(C.ALIGN_DEG, C.EDGE_TURN_DEG / 2) if near_edge else C.ALIGN_DEG
+        a = math.radians(self.robot.th)
+        ax, ay = x + 12 * math.cos(a), y + 12 * math.sin(a)
+        heading_out = not (5 < ax < W - 5 and 5 < ay < H - 5)   # about to leave the arena
+        if abs(err) > turn_lim or heading_out:
             self.aligning = True
         if self.aligning:
-            # good enough: within ALIGN_DEG, or the last pulse overshot past the target
+            # good enough: within the align limit, or the last pulse overshot past the target
             # direction and we're within the stop-and-turn limit - no endless fine-tuning
-            overshot = ts is not None and (err > 0) != (ts["dir"] > 0) and abs(err) <= C.TURN_IN_PLACE_DEG
-            if not (settled and (abs(err) <= C.ALIGN_DEG or overshot)):
+            overshot = ts is not None and (err > 0) != (ts["dir"] > 0) and abs(err) <= turn_lim
+            if heading_out or not (settled and (abs(err) <= align_lim or overshot)):
                 return self._turn_pulse(err)
             self.aligning = False
         self.turn_state = None

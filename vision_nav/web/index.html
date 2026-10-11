@@ -608,7 +608,10 @@ function updatePanel() {
   $('bFollow').classList.toggle('on', m.type === 'follow');
   $('bLock').classList.toggle('on', S.arena.locked);
   $('bLock').textContent = S.arena.locked ? 'Unlock camera' : 'Lock camera';
-  if (document.activeElement !== $('aw') && document.activeElement !== $('ah')) { $('aw').value = S.arena.w; $('ah').value = S.arena.h; }
+  // don't overwrite numbers the user is typing (clicking Apply blurs the field first)
+  if (!arenaDirty && document.activeElement !== $('aw') && document.activeElement !== $('ah')) {
+    $('aw').value = S.arena.w; $('ah').value = S.arena.h;
+  }
   const log = S.events.join('\n');
   if (log !== lastLog) { $('log').textContent = log; $('log').scrollTop = 1e9; lastLog = log; }
   $('arenaMode').textContent = S.arena.auto
@@ -663,8 +666,17 @@ function renderTune() {
     inp.disabled = !control;
   });
 }
+let arenaDirty = false;
+$('aw').addEventListener('input', () => arenaDirty = true);
+$('ah').addEventListener('input', () => arenaDirty = true);
+[$('aw'), $('ah')].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') $('bArena').click(); }));
 $('bArenaAuto').onclick = () => send({type: 'arena_auto'});
-$('bArena').onclick = () => send({type: 'arena', w: +$('aw').value, h: +$('ah').value});
+$('bArena').onclick = () => {
+  const w = +$('aw').value, h = +$('ah').value;
+  if (!(w >= 30 && h >= 30)) return;
+  send({type: 'arena', w, h});
+  arenaDirty = false;
+};
 
 // joystick + keyboard -> {type:'joy'} at 10 Hz while active
 const pad = $('pad'), knob = $('knob'), R = 70, K = 25, M = R - K;

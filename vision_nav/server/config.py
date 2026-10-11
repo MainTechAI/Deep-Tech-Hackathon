@@ -60,6 +60,7 @@ TURN_SPEED = 45                 # % for turning on the spot
 TURN_IN_PLACE_DEG = 25          # heading error above which the robot turns in pulses (else: steers gently)
 STEER_MAX = 0.4                 # while driving, wheel difference at most this fraction of speed
 STEER_GAIN = 0.0                # steering while driving (0 = straight segments only)
+EDGE_TURN_DEG = 10              # stricter heading tolerance near the arena edge
 ALIGN_DEG = 12                  # after a turn, keep turning until within this
 TURN_PULSE_MS = 120             # on-the-spot turns are pulses (turn, stop, look) of at most this
 TURN_PIVOT = 1                  # 1: turn around one wheel (smooth), 0: spin on the spot (sharp)
