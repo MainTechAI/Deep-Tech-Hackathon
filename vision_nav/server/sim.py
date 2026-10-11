@@ -196,8 +196,9 @@ async def camera_link(rover, person, url, marker_rot):
                         for mid, (cx, cy) in corners_world.items():
                             if random.random() > 0.03:
                                 markers[str(mid)] = [project(p) for p in square(cx, cy, 90, C.CORNER_MARKER_CM)]
-                        if random.random() > 0.05:
-                            sx, sy, sth = rover.seen_pose()
+                        sx, sy, sth = rover.seen_pose()
+                        in_view = -12 < sx < W + 12 and -12 < sy < H + 12
+                        if in_view and random.random() > 0.05:
                             mx = sx + C.MARKER_FORWARD * math.cos(math.radians(sth))
                             my = sy + C.MARKER_FORWARD * math.sin(math.radians(sth))
                             markers["0"] = [project(p) for p in square(mx, my, sth + marker_rot, MARKER)]

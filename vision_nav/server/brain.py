@@ -75,6 +75,7 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
+        self.last_drive = (0, 0)      # last real drive command, to find the way back when lost
         self.turn_state = None        # running turn pulse: th0, dir, t_end, until
         self.wrong_turns = 0
         self.aligning = False         # turning on the spot until within ALIGN_DEG
@@ -191,7 +192,13 @@ class Brain:
         return now() - self.tel_t < C.ROBOT_TIMEOUT
 
     # ------------------------------------------------------------ commands
+    def _inside(self, x, y):
+        """Clamp a target to where the robot centre may go (inside the fence)."""
+        f = C.FENCE_CM
+        return (min(max(x, f), self.grid.w_cm - f), min(max(y, f), self.grid.h_cm - f))
+
     def cmd_goto(self, x, y):
+        x, y = self._inside(x, y)
         self.mission = {"type": "goto", "target": (x, y)}
         self.status = "planning"
         self.path = None
@@ -212,7 +219,7 @@ class Brain:
 
     def cmd_set_home(self, x=None, y=None):
         if x is not None:
-            self.home = (x, y)
+            self.home = self._inside(x, y)
         elif self.robot.fresh():
             self.home = (self.robot.x, self.robot.y)
         else:
@@ -256,6 +263,12 @@ class Brain:
             self.status = "robot offline"
             return None
         if not self.robot.fresh():
+            # just lost (e.g. drove out of the camera view): undo the last motion for a moment
+            lost_for = now() - self.robot.t
+            l, r = self.last_drive
+            if lost_for < 1.3 and l + r != 0:
+                self.status = "lost - coming back into view"
+                return ("drive", -40, -40, 250) if l + r > 0 else ("drive", 40, 40, 250)
             self.status = "robot not visible"
             return ("stop",)
         if now() - self.robot.t > C.MOTION_POSE_AGE:
@@ -300,12 +313,15 @@ class Brain:
                 return ("stop",)
 
         # blocked by the robot's own front safety: back off, the map has the obstacle now
-        if t < self.backoff_until or self.tel.get("blocked"):
+        # (no rear sensor: only if there is room inside the arena behind the robot)
+        if (t < self.backoff_until or self.tel.get("blocked")) and self._room_behind():
             self.status = "backing off"
             return ("drive", -45, -45, 300)
 
         cmd = self._follow_path(dist_goal)
         self._check_stuck(t, cmd)
+        if cmd and cmd[0] == "drive":
+            self.last_drive = (cmd[1], cmd[2])
         return cmd
 
     def _check_stuck(self, t, cmd):
@@ -331,7 +347,7 @@ class Brain:
     def _mission_target(self):
         m = self.mission
         if m["type"] in ("goto", "home"):
-            return m["target"]
+            return self._inside(*m["target"])
         # follow: a point FOLLOW_DIST before the person, on the line to the robot
         if not self.person.fresh(1.0):
             self.status = "person not visible"
@@ -340,7 +356,7 @@ class Brain:
         d = math.hypot(dx, dy)
         if d < C.FOLLOW_DIST + 10:
             return "hold"
-        return (self.person.x + dx / d * C.FOLLOW_DIST, self.person.y + dy / d * C.FOLLOW_DIST)
+        return self._inside(self.person.x + dx / d * C.FOLLOW_DIST, self.person.y + dy / d * C.FOLLOW_DIST)
 
     def _lookahead(self):
         """Point LOOKAHEAD cm ahead along the path, starting from the closest segment."""
@@ -365,6 +381,11 @@ class Brain:
             remaining -= seg
             cx, cy = bx, by
         return p[-1]
+
+    def _room_behind(self, d=25.0):
+        a = math.radians(self.robot.th)
+        bx, by = self.robot.x - d * math.cos(a), self.robot.y - d * math.sin(a)
+        return 5 < bx < self.grid.w_cm - 5 and 5 < by < self.grid.h_cm - 5
 
     def _remaining_path(self, target):
         """The current route from where the robot is now, ending at the current target."""

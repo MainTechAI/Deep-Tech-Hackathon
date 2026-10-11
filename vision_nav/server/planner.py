@@ -93,8 +93,8 @@ class Grid:
             for (i, j) in self.occupied():
                 for di, dj in offs:
                     blocked.add((i + di, j + dj))
-            # virtual fence: keep the robot inside the arena
-            m = max(1, int(round(C.ROBOT_RADIUS / self.cell)) - 1)
+            # virtual fence: keep the robot centre FENCE_CM inside the arena edge
+            m = self.fence_cells()
             for i in range(self.nx):
                 for j in list(range(m)) + list(range(self.ny - m, self.ny)):
                     blocked.add((i, j))
@@ -103,6 +103,9 @@ class Grid:
                     blocked.add((i, j))
             self._inflated = blocked
         return self._inflated
+
+    def fence_cells(self):
+        return max(1, int(round(C.FENCE_CM / self.cell)))
 
     def free(self, k):
         return self.inside(*k) and k not in self.inflated()
@@ -152,16 +155,19 @@ class Grid:
         """List of (x, y) cm waypoints from start to goal, or None if unreachable.
         The start may be inside an inflated zone (robot already close to something)."""
         s = self.cell_of(*start_xy)
+        # robot outside the arena but still seen: start from the nearest edge cell, drive back in
+        s = (min(max(s[0], 0), self.nx - 1), min(max(s[1], 0), self.ny - 1))
         g = self.nearest_free(self.cell_of(*goal_xy))
-        if g is None or not self.inside(*s):
+        if g is None:
             return None
         blocked = self.inflated()
         occupied = self.occupied()
         # allow leaving the inflated area around the start
         escape = set()
         if s in blocked:
-            for di in range(-4, 5):
-                for dj in range(-4, 5):
+            er = max(4, self.fence_cells() + 2)
+            for di in range(-er, er + 1):
+                for dj in range(-er, er + 1):
                     escape.add((s[0] + di, s[1] + dj))
 
         def ok(k):

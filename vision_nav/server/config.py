@@ -43,6 +43,7 @@ ARENA_H = _get("ARENA_H", 200.0, float)
 GRID_CM = 5.0                   # map cell size
 
 # ---- robot geometry (cm) ----
+FENCE_CM = 20.0                 # the robot centre stays this far inside the arena edge
 ROBOT_RADIUS = 13.0             # for obstacle inflation: half the diagonal of a 21 x 16 cm robot
 STOP_CM = 20.0                  # the firmware's front safety distance
 SENSOR_FORWARD = 10.0           # sonar is this far ahead of the marker centre
@@ -78,6 +79,6 @@ REPLAN_S = 0.5
 TUNABLE = {
     "CRUISE": (15, 100), "CRUISE_MIN": (10, 100), "TURN_SPEED": (15, 100),
     "STEER_GAIN": (0.0, 3.0), "TURN_IN_PLACE_DEG": (10, 90), "TURN_PULSE_MS": (40, 600),
-    "TURN_SETTLE_MS": (0, 1500), "ALIGN_DEG": (2, 30), "ROBOT_RADIUS": (6, 30), "TURN_PIVOT": (0, 1), "OBSTACLE_RANGE": (10, 150), "MAP_HITS": (1, 5),
+    "TURN_SETTLE_MS": (0, 1500), "ALIGN_DEG": (2, 30), "ROBOT_RADIUS": (6, 30), "FENCE_CM": (5, 60), "TURN_PIVOT": (0, 1), "OBSTACLE_RANGE": (10, 150), "MAP_HITS": (1, 5),
     "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150), "TRIM": (-30, 30),
 }
