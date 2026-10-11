@@ -139,6 +139,7 @@ class Grid:
         if g is None or not self.inside(*s):
             return None
         blocked = self.inflated()
+        occupied = self.occupied()
         # allow leaving the inflated area around the start
         escape = set()
         if s in blocked:
@@ -147,7 +148,7 @@ class Grid:
                     escape.add((s[0] + di, s[1] + dj))
 
         def ok(k):
-            return self.inside(*k) and (k not in blocked or (k in escape and k not in self.occupied()))
+            return self.inside(*k) and (k not in blocked or (k in escape and k not in occupied))
 
         moves = [(1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1),
                  (1, 1, 1.414), (1, -1, 1.414), (-1, 1, 1.414), (-1, -1, 1.414)]

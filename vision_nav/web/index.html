@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vision Nav</title>
+<style>
+:root{--bg:#0f1115;--panel:#181b22;--line:#2a2f3a;--text:#e6e6e6;--dim:#8b93a1;
+  --ok:#3ccf6e;--warn:#f5b83d;--bad:#ef4f4f;--acc:#4c8dff;--pur:#a46bff}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0 12px 0 0}
+.pill{font-size:12px;padding:4px 10px;border-radius:12px;background:#262a33;color:var(--dim)}
+.pill.ok{background:#173d26;color:var(--ok)}.pill.bad{background:#3d1717;color:var(--bad)}.pill.warn{background:#3d3317;color:var(--warn)}
+header a{color:var(--acc);font-size:13px;margin-left:auto}
+main{display:grid;grid-template-columns:1fr 320px;gap:12px;padding:12px 16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+#mapwrap{position:relative}
+canvas{width:100%;display:block;border-radius:8px;background:#11141a;touch-action:none}
+.tools{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.seg button{border-radius:0}.seg button:first-child{border-radius:8px 0 0 8px}.seg button:last-child{border-radius:0 8px 8px 0}
+.seg{display:flex}
+button{background:#262a33;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;cursor:pointer}
+button.on{background:var(--acc);border-color:var(--acc)}
+button:disabled{opacity:.4;cursor:default}
+#stop{background:var(--bad);border-color:var(--bad);font-weight:700;width:100%;font-size:18px;padding:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.stat{display:flex;justify-content:space-between;font-size:14px;padding:3px 0;border-bottom:1px solid #20242c}
+.stat b{font-variant-numeric:tabular-nums}
+h3{font-size:13px;color:var(--dim);margin:14px 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+#log{font-size:12px;color:var(--dim);font-family:ui-monospace,monospace;max-height:150px;overflow:auto;white-space:pre-wrap}
+#pad{width:140px;height:140px;border-radius:50%;background:#11141a;border:2px solid var(--line);margin:6px auto;position:relative;touch-action:none}
+#knob{width:50px;height:50px;border-radius:50%;background:var(--acc);position:absolute;left:45px;top:45px}
+.row{display:flex;gap:6px;align-items:center}.row input{width:70px;background:#11141a;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px}
+.hint{font-size:12px;color:var(--dim)}
+#viewonly{display:none;color:var(--warn);font-size:13px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Vision Nav</h1>
+  <span class="pill" id="pRobot">robot</span>
+  <span class="pill" id="pCam">camera</span>
+  <span class="pill" id="pVis">robot visible</span>
+  <span class="pill" id="pCal">arena</span>
+  <span class="pill" id="pMission">idle</span>
+  <a href="camera.html" id="camLink">camera page</a>
+  <a href="markers.html" style="margin-left:12px">print markers</a>
+</header>
+<main>
+  <section class="card" id="mapwrap">
+    <div id="viewonly">View only - open with ?key=... to control</div>
+    <div class="tools">
+      <div class="seg">
+        <button data-tool="go" class="on">Go here</button>
+        <button data-tool="wall">Draw walls</button>
+        <button data-tool="home">Set home</button>
+      </div>
+      <span class="hint" id="toolHint">click the map: the robot drives there around known obstacles</span>
+    </div>
+    <canvas id="map"></canvas>
+  </section>
+  <aside class="card">
+    <button id="stop">STOP</button>
+    <div class="grid2">
+      <button id="bFollow">Follow me</button>
+      <button id="bHome">Go home</button>
+      <button id="bCalib">Calibrate</button>
+      <button id="bClear">Clear map</button>
+      <button id="bLock">Lock camera</button>
+      <button id="bBeep">Beep</button>
+    </div>
+    <h3>Telemetry</h3>
+    <div class="stat"><span>Mission</span><b id="sMission">-</b></div>
+    <div class="stat"><span>Sonar</span><b id="sDist">-</b></div>
+    <div class="stat"><span>Wheels L / R</span><b id="sWheels">-</b></div>
+    <div class="stat"><span>Pose x, y, heading</span><b id="sPose">-</b></div>
+    <div class="stat"><span>Camera</span><b id="sCam">-</b></div>
+    <h3>Manual drive</h3>
+    <div id="pad"><div id="knob"></div></div>
+    <div class="hint" style="text-align:center">or WASD / arrows, Space = stop</div>
+    <h3>Arena (cm between corner markers)</h3>
+    <div class="row">W <input id="aw" type="number"> H <input id="ah" type="number"><button id="bArena">Apply</button></div>
+    <h3>Events</h3>
+    <div id="log"></div>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+let key = qs.get('key');
+try { if (key) localStorage.setItem('vnKey', key); else key = localStorage.getItem('vnKey') || ''; } catch (e) {}
+if (key) $('camLink').href = 'camera.html?key=' + encodeURIComponent(key);
+
+let ws, S = null, MAP = {cells: [], walls: [], cell: 5}, control = false, tool = 'go';
+
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', role: 'console', key}));
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'welcome') { control = m.control; $('viewonly').style.display = control ? 'none' : 'block'; }
+    else if (m.type === 'state') { S = m; render(); }
+    else if (m.type === 'map') { MAP = m; }
+  };
+  ws.onclose = () => { S = null; render(); setTimeout(connect, 1500); };
+}
+function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+connect();
+
+// ---------------------------------------------------------------- map drawing
+const cv = $('map'), ctx = cv.getContext('2d');
+const PAD = 24;
+let scale = 1, aw = 300, ah = 200;
+function resize() {
+  const w = cv.clientWidth;
+  const h = Math.round(w * (ah + 2 * PAD / scale) / (aw + 2 * PAD / scale)) || w * 0.66;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = Math.min(h, window.innerHeight * 0.8) * dpr;
+  cv.style.height = (cv.height / dpr) + 'px';
+}
+function fit() {
+  const W = cv.width, H = cv.height, dpr = window.devicePixelRatio || 1;
+  scale = Math.min((W - 2 * PAD * dpr) / aw, (H - 2 * PAD * dpr) / ah);
+  return dpr;
+}
+const X = x => cv.width / 2 + (x - aw / 2) * scale;
+const Y = y => cv.height / 2 - (y - ah / 2) * scale;
+const toWorld = (px, py) => [(px - cv.width / 2) / scale + aw / 2, -(py - cv.height / 2) / scale + ah / 2];
+
+function render() {
+  if (S) { aw = S.arena.w; ah = S.arena.h; }
+  resize(); const dpr = fit();
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  // grid
+  ctx.strokeStyle = '#1b1f27'; ctx.lineWidth = 1;
+  for (let x = 0; x <= aw; x += 20) { ctx.beginPath(); ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(ah)); ctx.stroke(); }
+  for (let y = 0; y <= ah; y += 20) { ctx.beginPath(); ctx.moveTo(X(0), Y(y)); ctx.lineTo(X(aw), Y(y)); ctx.stroke(); }
+  ctx.strokeStyle = '#3a4150'; ctx.lineWidth = 2 * dpr; ctx.strokeRect(X(0), Y(ah), aw * scale, ah * scale);
+  // corner markers
+  ctx.fillStyle = '#3a4150'; ctx.font = (11 * dpr) + 'px system-ui';
+  [[0, 0, 1], [aw, 0, 2], [aw, ah, 3], [0, ah, 4]].forEach(([x, y, id]) => {
+    ctx.fillRect(X(x) - 5 * dpr, Y(y) - 5 * dpr, 10 * dpr, 10 * dpr);
+    ctx.fillText('#' + id, X(x) + 8 * dpr, Y(y) + (y ? 14 : -6) * dpr);
+  });
+  // obstacles
+  const c = MAP.cell || 5, walls = new Set((MAP.walls || []).map(k => k.join(',')));
+  (MAP.cells || []).forEach(([i, j]) => {
+    ctx.fillStyle = walls.has(i + ',' + j) ? '#c77d2e' : '#d0453f';
+    ctx.fillRect(X(i * c), Y((j + 1) * c), c * scale + 0.5, c * scale + 0.5);
+  });
+  if (!S) { overlayText('connecting to server...'); return; }
+  // trail
+  if (S.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(76,141,255,.45)'; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+    S.trail.forEach(([x, y], i) => i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.stroke();
+  }
+  // path
+  if (S.path) {
+    ctx.strokeStyle = '#3ccf6e'; ctx.lineWidth = 3 * dpr; ctx.setLineDash([8 * dpr, 6 * dpr]); ctx.beginPath();
+    S.path.forEach(([x, y], i) => i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // home
+  if (S.home) {
+    const [hx, hy] = S.home;
+    ctx.strokeStyle = '#f5b83d'; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(X(hx), Y(hy), 9 * dpr, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#f5b83d'; ctx.fillText('home', X(hx) + 12 * dpr, Y(hy) + 4 * dpr);
+  }
+  // target
+  if (S.mission.target) {
+    const [tx, ty] = S.mission.target;
+    ctx.strokeStyle = '#3ccf6e'; ctx.lineWidth = 3 * dpr; const r = 8 * dpr;
+    ctx.beginPath(); ctx.moveTo(X(tx) - r, Y(ty) - r); ctx.lineTo(X(tx) + r, Y(ty) + r);
+    ctx.moveTo(X(tx) + r, Y(ty) - r); ctx.lineTo(X(tx) - r, Y(ty) + r); ctx.stroke();
+  }
+  // person
+  if (S.person.visible) {
+    const p = S.person.pose;
+    ctx.fillStyle = '#a46bff'; ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 10 * dpr, 0, 7); ctx.fill();
+    ctx.fillText('you', X(p.x) + 13 * dpr, Y(p.y) + 4 * dpr);
+  }
+  // robot
+  const r = S.robot, p = r.pose;
+  if (p.age !== null) {
+    const a = p.th * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    // sonar ray
+    if (r.dist !== undefined && r.dist < 999) {
+      const sx = p.x + 10 * ca, sy = p.y + 10 * sa;
+      ctx.strokeStyle = r.dist < 20 ? '#ef4f4f' : 'rgba(245,184,61,.8)'; ctx.lineWidth = 2 * dpr;
+      ctx.beginPath(); ctx.moveTo(X(sx), Y(sy)); ctx.lineTo(X(sx + r.dist * ca), Y(sy + r.dist * sa)); ctx.stroke();
+    }
+    const L = 14, Wd = 9;
+    const pts = [[L, 0], [-L * 0.7, Wd], [-L * 0.7, -Wd]].map(([u, v]) => [p.x + u * ca - v * sa, p.y + u * sa + v * ca]);
+    ctx.fillStyle = r.visible ? '#4c8dff' : '#555c69';
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.closePath(); ctx.fill();
+  }
+  if (!S.arena.cal) overlayText('camera not calibrated: show all 4 corner markers');
+  updatePanel();
+}
+function overlayText(t) {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.fillStyle = 'rgba(15,17,21,.7)'; ctx.fillRect(0, cv.height / 2 - 22 * dpr, cv.width, 44 * dpr);
+  ctx.fillStyle = '#e6e6e6'; ctx.font = (15 * dpr) + 'px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(t, cv.width / 2, cv.height / 2 + 5 * dpr); ctx.textAlign = 'left';
+}
+window.addEventListener('resize', render);
+
+// ---------------------------------------------------------------- panel
+function pill(id, cls, text) { const el = $(id); el.className = 'pill ' + cls; el.textContent = text; }
+let lastLog = '';
+function updatePanel() {
+  const r = S.robot;
+  pill('pRobot', r.link && r.online ? 'ok' : 'bad', r.link && r.online ? 'robot online' : 'robot offline');
+  pill('pCam', S.camera.online ? 'ok' : 'bad', S.camera.online ? 'camera ' + S.camera.fps + ' fps' : 'camera offline');
+  pill('pVis', r.visible ? 'ok' : 'warn', r.visible ? 'robot visible' : 'robot not seen');
+  pill('pCal', S.arena.cal ? 'ok' : 'warn', S.arena.cal ? (S.arena.locked ? 'arena locked' : 'arena calibrated') : 'arena not calibrated');
+  const m = S.mission;
+  pill('pMission', m.type ? 'ok' : '', m.type ? m.type + ': ' + m.status : m.status);
+  $('sMission').textContent = m.type ? m.type + ' - ' + m.status : m.status;
+  $('sDist').textContent = r.dist === undefined ? '-' : r.dist >= 999 ? 'clear' : Math.round(r.dist) + ' cm' + (r.blocked ? ' BLOCKED' : '');
+  $('sWheels').textContent = r.l === undefined ? '-' : r.l + '% / ' + r.r + '%';
+  $('sPose').textContent = r.pose.age === null ? '-' : `${Math.round(r.pose.x)}, ${Math.round(r.pose.y)}, ${Math.round(r.pose.th)}°`;
+  $('sCam').textContent = S.camera.online ? S.camera.fps + ' fps' : 'offline';
+  $('bFollow').classList.toggle('on', m.type === 'follow');
+  $('bLock').classList.toggle('on', S.arena.locked);
+  $('bLock').textContent = S.arena.locked ? 'Unlock camera' : 'Lock camera';
+  if (document.activeElement !== $('aw') && document.activeElement !== $('ah')) { $('aw').value = S.arena.w; $('ah').value = S.arena.h; }
+  const log = S.events.join('\n');
+  if (log !== lastLog) { $('log').textContent = log; $('log').scrollTop = 1e9; lastLog = log; }
+  document.querySelectorAll('aside button, .seg button').forEach(b => b.disabled = !control);
+}
+
+// ---------------------------------------------------------------- input
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool;
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+  $('toolHint').textContent = {go: 'click the map: the robot drives there around known obstacles',
+    wall: 'click cells to add / remove obstacles by hand', home: 'click where "home" should be'}[tool];
+});
+cv.addEventListener('pointerdown', e => {
+  if (!control) return;
+  const b = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const [x, y] = toWorld((e.clientX - b.left) * dpr, (e.clientY - b.top) * dpr);
+  if (x < 0 || y < 0 || x > aw || y > ah) return;
+  if (tool === 'go') send({type: 'goto', x, y});
+  else if (tool === 'wall') send({type: 'wall', x, y});
+  else if (tool === 'home') send({type: 'sethome', x, y});
+});
+$('stop').onclick = () => { joyStop(); send({type: 'stop'}); };
+$('bFollow').onclick = () => send(S && S.mission.type === 'follow' ? {type: 'stop'} : {type: 'follow'});
+$('bHome').onclick = () => send({type: 'home'});
+$('bCalib').onclick = () => send({type: 'calibrate'});
+$('bClear').onclick = () => confirm('Clear the obstacle map and trail?') && send({type: 'clear'});
+$('bLock').onclick = () => send({type: 'lock', on: !(S && S.arena.locked)});
+$('bBeep').onclick = () => send({type: 'beep'});
+$('bArena').onclick = () => send({type: 'arena', w: +$('aw').value, h: +$('ah').value});
+
+// joystick + keyboard -> {type:'joy'} at 10 Hz while active
+const pad = $('pad'), knob = $('knob'), R = 70, K = 25, M = R - K;
+let jx = 0, jy = 0, touch = false, keys = {};
+function setKnob(dx, dy) { knob.style.left = (R - K + dx) + 'px'; knob.style.top = (R - K + dy) + 'px'; }
+function move(e) {
+  const b = pad.getBoundingClientRect();
+  let dx = e.clientX - b.left - b.width / 2, dy = e.clientY - b.top - b.height / 2;
+  const d = Math.hypot(dx, dy); if (d > M) { dx *= M / d; dy *= M / d; }
+  setKnob(dx, dy); jx = Math.round(dx / M * 70); jy = Math.round(-dy / M * 70);
+}
+function joyStop() { touch = false; jx = jy = 0; keys = {}; setKnob(0, 0); }
+pad.onpointerdown = e => { if (!control) return; touch = true; pad.setPointerCapture(e.pointerId); move(e); };
+pad.onpointermove = e => { if (touch) move(e); };
+pad.onpointerup = pad.onpointercancel = () => { touch = false; jx = jy = 0; setKnob(0, 0); };
+const KM = {ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r'};
+onkeydown = e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); $('stop').click(); return; }
+  const k = KM[e.code]; if (k) { keys[k] = 1; e.preventDefault(); }
+};
+onkeyup = e => { const k = KM[e.code]; if (k) delete keys[k]; };
+onblur = joyStop;
+setInterval(() => {
+  if (!control) return;
+  let x = jx, y = jy;
+  if (!touch) {
+    if (!Object.keys(keys).length) return;
+    y = ((keys.u ? 1 : 0) - (keys.d ? 1 : 0)) * 70;
+    x = ((keys.r ? 1 : 0) - (keys.l ? 1 : 0)) * (y ? 35 : 60);
+  }
+  send({type: 'joy', x, y});
+}, 100);
+</script>
+</body>
+</html>

@@ -42,9 +42,10 @@ async def robot_send(line):
         return
     try:
         w.write((line + "\n").encode())
-        await w.drain()
-    except (ConnectionError, RuntimeError):
+        await asyncio.wait_for(w.drain(), 0.5)
+    except (ConnectionError, RuntimeError, asyncio.TimeoutError):
         robot["writer"] = None
+        w.close()
 
 
 async def handle_robot(reader, writer):
@@ -85,15 +86,20 @@ async def handle_robot(reader, writer):
 
 
 # ---------------------------------------------------------------- websockets
+async def _send(ws, data):
+    try:
+        await asyncio.wait_for(ws.send_str(data), 0.5)
+    except Exception:
+        # a client that stops reading must never stall the control loop
+        clients.pop(ws, None)
+        asyncio.ensure_future(ws.close())
+
+
 async def broadcast(msg, role=None):
     data = json.dumps(msg)
-    for ws, info in list(clients.items()):
-        if role and info["role"] != role:
-            continue
-        try:
-            await ws.send_str(data)
-        except (ConnectionError, RuntimeError):
-            clients.pop(ws, None)
+    targets = [ws for ws, info in list(clients.items()) if not role or info["role"] == role]
+    if targets:
+        await asyncio.gather(*(_send(ws, data) for ws in targets))
 
 
 async def handle_console_msg(m):
@@ -105,7 +111,10 @@ async def handle_console_msg(m):
     elif t == "home":
         brain.cmd_home()
     elif t == "sethome":
-        brain.cmd_set_home()
+        if "x" in m:
+            brain.cmd_set_home(float(m["x"]), float(m["y"]))
+        else:
+            brain.cmd_set_home()
     elif t == "stop":
         brain.cmd_stop()
         await robot_send("S")
@@ -166,6 +175,9 @@ async def control_loop():
         t0 = time.monotonic()
         try:
             await control_step()
+            took = time.monotonic() - t0
+            if took > 0.1:
+                print(f"[app] slow control step: {took * 1000:.0f} ms")
         except Exception:                 # never let one bad tick kill the control loop
             traceback.print_exc()
             brain.cmd_stop()
@@ -199,7 +211,7 @@ async def control_step():
 
 
 async def on_startup(app):
-    app["robot_server"] = await asyncio.start_server(handle_robot, C.HTTP_HOST, C.ROBOT_PORT)
+    app["robot_server"] = await asyncio.start_server(handle_robot, C.ROBOT_HOST, C.ROBOT_PORT)
     app["loop_task"] = asyncio.ensure_future(control_loop())
     print(f"HTTP on :{C.HTTP_PORT}, robot TCP on :{C.ROBOT_PORT}")
 

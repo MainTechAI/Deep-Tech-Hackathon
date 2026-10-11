@@ -158,10 +158,14 @@ class Brain:
         self.path = None
         self.log("returning home")
 
-    def cmd_set_home(self):
-        if self.robot.fresh():
+    def cmd_set_home(self, x=None, y=None):
+        if x is not None:
+            self.home = (x, y)
+        elif self.robot.fresh():
             self.home = (self.robot.x, self.robot.y)
-            self.log("home set here")
+        else:
+            return
+        self.log(f"home set to ({self.home[0]:.0f}, {self.home[1]:.0f})")
 
     def cmd_stop(self):
         self.mission = None
@@ -206,13 +210,17 @@ class Brain:
         target = self._mission_target()
         if target is None:
             return ("stop",)
+        if target == "hold":       # next to the person: just turn to face them
+            self.status = "with the person"
+            want = math.degrees(math.atan2(self.person.y - self.robot.y, self.person.x - self.robot.x))
+            err = G.wrap(want - self.robot.th)
+            if abs(err) < 20:
+                return ("stop",)
+            s = C.TURN_SPEED * self.turn_sign
+            return ("drive", -s, s, 250) if err > 0 else ("drive", s, -s, 250)
 
         dist_goal = math.hypot(target[0] - self.robot.x, target[1] - self.robot.y)
-        tol = C.GOAL_TOL if self.mission["type"] != "follow" else 6.0
-        if dist_goal < tol:
-            if self.mission["type"] == "follow":
-                self.status = "with the person"
-                return ("stop",)
+        if dist_goal < C.GOAL_TOL and self.mission["type"] != "follow":
             self.log(f"{self.mission['type']}: arrived")
             self.mission = None
             self.path = None
@@ -268,8 +276,8 @@ class Brain:
             return None
         dx, dy = self.robot.x - self.person.x, self.robot.y - self.person.y
         d = math.hypot(dx, dy)
-        if d < C.FOLLOW_DIST + 5:
-            return (self.robot.x, self.robot.y)   # close enough: hold position
+        if d < C.FOLLOW_DIST + 10:
+            return "hold"
         return (self.person.x + dx / d * C.FOLLOW_DIST, self.person.y + dy / d * C.FOLLOW_DIST)
 
     def _lookahead(self):

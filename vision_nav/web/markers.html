@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vision Nav markers</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+.noprint{max-width:760px;margin:0 auto 16px;line-height:1.5}
+.noprint code{background:#eee;padding:1px 4px;border-radius:4px}
+.sheet{display:flex;flex-wrap:wrap;gap:10mm;justify-content:center}
+.m{display:flex;flex-direction:column;align-items:center;break-inside:avoid;page-break-inside:avoid;padding:4mm;border:1px dashed #bbb}
+.m svg{display:block}
+.m b{margin-top:2mm;font-size:12pt}
+.m span{font-size:9pt;color:#555}
+.arrow{font-size:10pt;margin-bottom:1mm}
+@media print{.noprint{display:none}body{padding:0}}
+</style>
+</head>
+<body>
+<div class="noprint">
+  <h2>Markers to print</h2>
+  <p>Print at <b>100% scale</b> (no "fit to page"), then check one marker with a ruler: the black square
+  must be exactly the size written under it. Keep the white border around each marker.</p>
+  <ul>
+    <li><b>#0 robot</b> - flat on top of the robot, the arrow pointing to the robot's <b>front</b>.
+      If it ends up rotated anyway, the <i>Calibrate</i> button corrects it.</li>
+    <li><b>#1-#4 corners</b> - on the floor at the corners of the arena, <b>counter-clockwise</b> seen from above:
+      #1 near-left, #2 near-right, #3 far-right, #4 far-left (as seen from the camera). Measure the distance
+      between the centres of #1-#2 (W) and #1-#4 (H) and enter them in the console.
+      Best: raise the corner markers to the height of the robot marker (boxes / books).</li>
+    <li><b>#5 follow me</b> - held flat, facing the camera, by the person the robot should follow.</li>
+  </ul>
+  <p><button onclick="print()">Print</button></p>
+</div>
+<div class="sheet" id="sheet"></div>
+<script src="vendor/cv.js"></script>
+<script src="vendor/aruco.js"></script>
+<script src="vendor/aruco_4x4_1000.js"></script>
+<script>
+const dict = new AR.Dictionary('ARUCO_4X4_1000');
+const items = [
+  [0, 'robot', 100, true], [1, 'corner (0, 0)', 150], [2, 'corner (W, 0)', 150],
+  [3, 'corner (W, H)', 150], [4, 'corner (0, H)', 150], [5, 'follow me', 150],
+];
+for (const [id, label, mm, arrow] of items) {
+  const d = document.createElement('div');
+  d.className = 'm';
+  // the generated SVG is 8 modules wide: 1 white quiet zone + 6 black square... -> size the black part to mm
+  const total = mm * 8 / 6;
+  d.innerHTML = (arrow ? '<div class="arrow">&#9650; robot front &#9650;</div>' : '') +
+    dict.generateSVG(id).replace('<svg ', `<svg style="width:${total}mm;height:${total}mm" `) +
+    `<b>#${id} ${label}</b><span>black square = ${mm / 10} cm</span>`;
+  document.getElementById('sheet').appendChild(d);
+}
+</script>
+</body>
+</html>

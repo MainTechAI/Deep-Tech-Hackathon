@@ -23,7 +23,8 @@ def _get(name, default, cast=str):
 
 
 # ---- network ----
-HTTP_HOST = _get("HTTP_HOST", "0.0.0.0")
+HTTP_HOST = _get("HTTP_HOST", "0.0.0.0")      # 127.0.0.1 behind a reverse proxy
+ROBOT_HOST = _get("ROBOT_HOST", "0.0.0.0")
 HTTP_PORT = _get("HTTP_PORT", 8080, int)       # put Caddy/nginx with HTTPS in front
 ROBOT_PORT = _get("ROBOT_PORT", 9000, int)     # plain TCP, the robot connects here
 ROBOT_TOKEN = _get("ROBOT_TOKEN", "dev-robot-token")
