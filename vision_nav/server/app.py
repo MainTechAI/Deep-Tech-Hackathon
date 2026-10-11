@@ -57,7 +57,10 @@ async def handle_robot(reader, writer):
         return
     parts = hello.decode(errors="replace").split()
     if len(parts) < 2 or parts[0] != "HELLO" or parts[1] != C.ROBOT_TOKEN:
-        print("[robot] rejected", peer)
+        got = parts[1] if len(parts) > 1 else ""
+        print(f"[robot] rejected {peer}: first word {parts[0] if parts else '(empty)'!r}, "
+              f"token length {len(got)} starts {got[:3]!r} (expected length {len(C.ROBOT_TOKEN)} "
+              f"starts {C.ROBOT_TOKEN[:3]!r})")
         writer.close()
         return
     if robot["writer"]:
