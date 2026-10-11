@@ -31,45 +31,44 @@ class Grid:
 
     # ---- map updates ----
     def occupied(self):
-        return self.walls | {k for k, v in self.hits.items() if v >= 2}
+        return self.walls | {k for k, v in self.hits.items() if v >= C.MAP_HITS}
 
     def _changed(self):
         self.version += 1
         self._inflated = None
 
-    def add_hit(self, x, y):
+    def add_hit(self, x, y, force=False):
+        """force: a sure obstacle (very close echo, robot stuck) - also counted at the arena edge."""
         k = self.cell_of(x, y)
         if not self.inside(*k):
             return False
+        e = C.EDGE_IGNORE     # the fence keeps the robot off the edge anyway; echoes there are outside things
+        if not force and (x < e or y < e or x > self.w_cm - e or y > self.h_cm - e):
+            return False
         before = self.hits.get(k, 0)
         self.hits[k] = min(5, before + 1)
-        if before < 2 <= self.hits[k]:
+        if before < C.MAP_HITS <= self.hits[k]:
             self._changed()
             return True
         return False
 
     def add_free_ray(self, x0, y0, x1, y1):
-        """Sonar saw nothing along this segment: weaken obstacles on it."""
+        """Sonar saw nothing along this segment: forget single (unconfirmed) echoes on it.
+        Confirmed obstacles stay - the sonar cone is wide, so a ray passing right next to a box
+        corner would otherwise erase it and the planned route would flip back and forth.
+        Moved obstacles are removed with Clear map."""
         n = int(math.hypot(x1 - x0, y1 - y0) / (self.cell / 2)) + 1
-        changed = False
         for s in range(n):
             t = s / n
             k = self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
-            v = self.hits.get(k)
-            if v:
-                self.hits[k] = v - 1
-                if v - 1 < 2 <= v:
-                    changed = True
-                if self.hits[k] == 0:
-                    del self.hits[k]
-        if changed:
-            self._changed()
+            if 0 < self.hits.get(k, 0) < C.MAP_HITS:
+                del self.hits[k]
 
     def toggle_wall(self, x, y):
         k = self.cell_of(x, y)
         if not self.inside(*k):
             return
-        if k in self.walls or self.hits.get(k, 0) >= 2:
+        if k in self.walls or self.hits.get(k, 0) >= C.MAP_HITS:
             self.walls.discard(k)
             self.hits.pop(k, None)
         else:
@@ -85,15 +84,17 @@ class Grid:
     def inflated(self):
         """Cells the robot centre must not enter: obstacles grown by the robot radius."""
         if self._inflated is None:
-            r = int(math.ceil(C.ROBOT_RADIUS / self.cell))
+            # cells whose centre is within ROBOT_RADIUS of the obstacle cell's centre
+            rc = C.ROBOT_RADIUS / self.cell
+            r = int(math.ceil(rc))
             blocked = set()
             offs = [(di, dj) for di in range(-r, r + 1) for dj in range(-r, r + 1)
-                    if di * di + dj * dj <= r * r]
+                    if di * di + dj * dj <= rc * rc]
             for (i, j) in self.occupied():
                 for di, dj in offs:
                     blocked.add((i + di, j + dj))
-            # virtual fence: keep the robot inside the arena
-            m = max(1, int(round(C.ROBOT_RADIUS / self.cell)) - 1)
+            # virtual fence: keep the robot centre FENCE_CM inside the arena edge
+            m = self.fence_cells()
             for i in range(self.nx):
                 for j in list(range(m)) + list(range(self.ny - m, self.ny)):
                     blocked.add((i, j))
@@ -102,6 +103,9 @@ class Grid:
                     blocked.add((i, j))
             self._inflated = blocked
         return self._inflated
+
+    def fence_cells(self):
+        return max(1, int(round(C.FENCE_CM / self.cell)))
 
     def free(self, k):
         return self.inside(*k) and k not in self.inflated()
@@ -113,6 +117,22 @@ class Grid:
             t = s / n
             if not self.free(self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)):
                 return False
+        return True
+
+    def path_free(self, pts):
+        """Is a route (cm points) still clear of inflated obstacles? The first 15 cm are not
+        checked: the robot itself may already be inside an inflated zone."""
+        skip = 15.0
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            L = math.hypot(x1 - x0, y1 - y0)
+            n = int(L / (self.cell / 2)) + 1
+            for s in range(n + 1):
+                d = L * s / n
+                if skip > 0 and d < skip:
+                    continue
+                if not self.free(self.cell_of(x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n)):
+                    return False
+            skip -= L
         return True
 
     def nearest_free(self, k, max_r=8):
@@ -135,16 +155,19 @@ class Grid:
         """List of (x, y) cm waypoints from start to goal, or None if unreachable.
         The start may be inside an inflated zone (robot already close to something)."""
         s = self.cell_of(*start_xy)
+        # robot outside the arena but still seen: start from the nearest edge cell, drive back in
+        s = (min(max(s[0], 0), self.nx - 1), min(max(s[1], 0), self.ny - 1))
         g = self.nearest_free(self.cell_of(*goal_xy))
-        if g is None or not self.inside(*s):
+        if g is None:
             return None
         blocked = self.inflated()
         occupied = self.occupied()
         # allow leaving the inflated area around the start
         escape = set()
         if s in blocked:
-            for di in range(-4, 5):
-                for dj in range(-4, 5):
+            er = max(4, self.fence_cells() + 2)
+            for di in range(-er, er + 1):
+                for dj in range(-er, er + 1):
                     escape.add((s[0] + di, s[1] + dj))
 
         def ok(k):

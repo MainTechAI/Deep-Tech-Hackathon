@@ -7,7 +7,7 @@ HOST="${1:-vpn}"
 DIR=/opt/vision_nav
 cd "$(dirname "$0")/.."
 
-rsync -az --delete --exclude .venv --exclude __pycache__ --exclude 'server/.env' \
+rsync -az --delete --exclude .venv --exclude __pycache__ --exclude 'server/.env' --exclude 'data' \
   --exclude 'firmware' ./ "$HOST:$DIR/"
 
 ssh "$HOST" bash -s <<EOF

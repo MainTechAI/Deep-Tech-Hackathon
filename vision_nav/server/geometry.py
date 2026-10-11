@@ -60,5 +60,30 @@ def marker_pose(h, corners):
     return c[0], c[1], th
 
 
+def arena_size(corner_markers, side):
+    """Measure the arena (W, H) in cm from the 4 corner markers, using their known printed size.
+    corner_markers: image corners of markers #1..#4 in arena order.
+    The centres define a homography to the unit square; there, every marker edge e must satisfy
+    (W*ex)^2 + (H*ey)^2 = side^2. 16 edges -> least squares for W^2 and H^2."""
+    hn = homography([centre(c) for c in corner_markers], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    a11 = a12 = a22 = b1 = b2 = 0.0
+    s2 = side * side
+    for c in corner_markers:
+        q = [apply(hn, p) for p in c]
+        for i in range(4):
+            u = (q[(i + 1) % 4][0] - q[i][0]) ** 2
+            v = (q[(i + 1) % 4][1] - q[i][1]) ** 2
+            a11 += u * u; a12 += u * v; a22 += v * v
+            b1 += u * s2; b2 += v * s2
+    det = a11 * a22 - a12 * a12
+    if abs(det) < 1e-24:
+        return None
+    w2 = (b1 * a22 - b2 * a12) / det
+    h2 = (a11 * b2 - a12 * b1) / det
+    if w2 <= 0 or h2 <= 0:
+        return None
+    return math.sqrt(w2), math.sqrt(h2)
+
+
 def wrap(deg):
     return (deg + 180.0) % 360.0 - 180.0

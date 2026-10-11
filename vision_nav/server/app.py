@@ -19,6 +19,7 @@ Run:  python app.py      then open http://localhost:8080/?key=<CONTROL_KEY>
 """
 import asyncio
 import json
+import os
 import time
 import traceback
 from pathlib import Path
@@ -26,11 +27,47 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 import config as C
-from brain import Brain
+from brain import Brain, trimmed
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 
 brain = Brain()
+DATA = Path(os.environ.get("DATA_DIR", str(WEB.parent / "data")))
+SETTINGS = DATA / "settings.json"
+_saved = None
+
+
+def snapshot():
+    return {"tune": {k: getattr(C, k) for k in C.TUNABLE},
+            "turn_sign": brain.turn_sign, "heading_offset": brain.heading_offset}
+
+
+def load_settings():
+    """Tuning and calibration survive restarts and redeploys."""
+    global _saved
+    try:
+        s = json.loads(SETTINGS.read_text())
+    except (OSError, ValueError):
+        return
+    for k, v in s.get("tune", {}).items():
+        if k in C.TUNABLE:
+            setattr(C, k, v)
+    brain.turn_sign = s.get("turn_sign", 1)
+    brain.heading_offset = s.get("heading_offset", 0.0)
+    _saved = snapshot()
+    print(f"[app] settings loaded from {SETTINGS}")
+
+
+def save_settings():
+    global _saved
+    snap = snapshot()
+    if snap != _saved:
+        try:
+            DATA.mkdir(parents=True, exist_ok=True)
+            SETTINGS.write_text(json.dumps(snap, indent=1))
+            _saved = snap
+        except OSError as e:
+            print("[app] cannot save settings:", e)
 clients = {}             # ws -> {"role":..., "control": bool}
 robot = {"writer": None, "peer": None, "rtt": None}
 
@@ -57,7 +94,10 @@ async def handle_robot(reader, writer):
         return
     parts = hello.decode(errors="replace").split()
     if len(parts) < 2 or parts[0] != "HELLO" or parts[1] != C.ROBOT_TOKEN:
-        print("[robot] rejected", peer)
+        got = parts[1] if len(parts) > 1 else ""
+        print(f"[robot] rejected {peer}: first word {parts[0] if parts else '(empty)'!r}, "
+              f"token length {len(got)} starts {got[:3]!r} (expected length {len(C.ROBOT_TOKEN)} "
+              f"starts {C.ROBOT_TOKEN[:3]!r})")
         writer.close()
         return
     if robot["writer"]:
@@ -130,6 +170,17 @@ async def handle_console_msg(m):
         brain.grid.toggle_wall(float(m["x"]), float(m["y"]))
     elif t == "arena":
         brain.set_arena(float(m["w"]), float(m["h"]))
+    elif t == "tune":
+        k = m.get("key")
+        if k in C.TUNABLE:
+            lo, hi = C.TUNABLE[k]
+            v = max(lo, min(hi, float(m["value"])))
+            setattr(C, k, int(v) if isinstance(getattr(C, k), int) else v)
+            if k in ("ROBOT_RADIUS", "FENCE_CM"):
+                brain.grid._changed()     # re-inflate obstacles and re-plan
+            brain.log(f"{k} = {getattr(C, k)}")
+    elif t == "arena_auto":
+        brain.cmd_arena_auto()
     elif t == "lock":
         brain.cal_locked = bool(m.get("on")) and brain.h_img2floor is not None
         brain.log("camera calibration " + ("locked" if brain.cal_locked else "unlocked"))
@@ -193,12 +244,14 @@ async def control_step():
     cmd = brain.tick()
     if cmd:
         if cmd[0] == "drive":
-            await robot_send(f"D {cmd[1]} {cmd[2]} {cmd[3]}")
+            l, r = trimmed(cmd[1], cmd[2])
+            await robot_send(f"D {l} {r} {cmd[3]}")
         elif cmd[0] == "stop":
             await robot_send("D 0 0 100")
         elif cmd[0] == "arrived":
             await robot_send("D 0 0 100")
             await robot_send("B 300 2500")
+    save_settings()
     st = brain.state()
     st["robot"]["link"] = robot["writer"] is not None
     await broadcast(st)
@@ -211,6 +264,7 @@ async def control_step():
 
 
 async def on_startup(app):
+    load_settings()
     app["robot_server"] = await asyncio.start_server(handle_robot, C.ROBOT_HOST, C.ROBOT_PORT)
     app["loop_task"] = asyncio.ensure_future(control_loop())
     print(f"HTTP on :{C.HTTP_PORT}, robot TCP on :{C.ROBOT_PORT}")

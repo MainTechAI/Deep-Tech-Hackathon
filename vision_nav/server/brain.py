@@ -34,6 +34,16 @@ class Pose:
                 "age": round(now() - self.t, 2) if self.t else None}
 
 
+def trimmed(l, r):
+    """Straight-line correction for unequal motors (C.TRIM, set by hand or by calibration)."""
+    t = C.TRIM
+    if t > 0:
+        l *= 1 - t / 100
+    elif t < 0:
+        r *= 1 + t / 100
+    return int(round(l)), int(round(r))
+
+
 class Brain:
     def __init__(self):
         self.grid = Grid(C.ARENA_W, C.ARENA_H)
@@ -42,6 +52,10 @@ class Brain:
         self.cal_t = 0.0
         self.cal_locked = False
         self.img_size = (0, 0)
+        self.auto_arena = True        # measure W x H from the corner markers' printed size
+        self.size_est = None
+        self.size_n = 0
+        self.size_done = False        # measured once; re-measuring would clear the map
         self.cam_t = 0.0
         self.cam_fps = 0.0
         self.robot = Pose()           # robot centre (wheel axle)
@@ -61,6 +75,10 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
+        self.last_drive = (0, 0)      # last real drive command, to find the way back when lost
+        self.turn_state = None        # running turn pulse: th0, dir, t_end, until
+        self.wrong_turns = 0
+        self.aligning = False         # turning on the spot until within ALIGN_DEG
         self.events = []              # messages for the console log
 
     # ------------------------------------------------------------ inputs
@@ -69,7 +87,9 @@ class Brain:
         self.events = self.events[-30:]
         print("[brain]", msg)
 
-    def set_arena(self, w, h):
+    def set_arena(self, w, h, auto=False):
+        if not auto:
+            self.auto_arena = False   # typed in by hand: stop measuring
         self.grid.resize(w, h)
         self.cal_locked = False
         self.h_img2floor = None
@@ -87,6 +107,8 @@ class Brain:
         self.img_size = (w, h)
 
         corners = [markers.get(i) for i in C.CORNER_MARKERS]
+        if not self.cal_locked and all(corners) and self.auto_arena and not self.size_done:
+            self._measure_arena(corners)
         if not self.cal_locked and all(corners):
             W, H = self.grid.w_cm, self.grid.h_cm
             src = [G.centre(c) for c in corners]
@@ -118,6 +140,35 @@ class Brain:
             x, y, th = G.marker_pose(self.h_img2floor, markers[C.FOLLOW_MARKER])
             self.person.update(x, y, th, alpha=0.4)
 
+    def _measure_arena(self, corners):
+        try:
+            est = G.arena_size(corners, C.CORNER_MARKER_CM)
+        except ValueError:
+            return
+        if not est or not (30 < est[0] < 2000 and 30 < est[1] < 2000):
+            return
+        if self.size_est is None:
+            self.size_est = est
+        else:   # average over many frames, single-pixel noise matters at this scale
+            a = 0.08
+            self.size_est = (self.size_est[0] + a * (est[0] - self.size_est[0]),
+                             self.size_est[1] + a * (est[1] - self.size_est[1]))
+        self.size_n += 1
+        w, h = self.size_est
+        if self.size_n >= 40:          # ~3 s of frames averaged: apply once and stop
+            self.size_done = True
+            if abs(w - self.grid.w_cm) > 2 or abs(h - self.grid.h_cm) > 2:
+                self.set_arena(round(w), round(h), auto=True)
+            self.log(f"arena measured: {w:.0f} x {h:.0f} cm")
+
+    def cmd_arena_auto(self):
+        self.auto_arena = True
+        self.size_est = None
+        self.size_n = 0
+        self.size_done = False
+        self.cal_locked = False
+        self.log(f"measuring the arena (corner markers = {C.CORNER_MARKER_CM:g} cm)")
+
     def telemetry(self, d):
         self.tel = d
         self.tel_t = now()
@@ -131,15 +182,23 @@ class Brain:
         free_to = min(dist - 5, C.FREE_RANGE) if dist < 999 else C.FREE_RANGE
         if free_to > 0:
             self.grid.add_free_ray(sx, sy, sx + free_to * math.cos(a), sy + free_to * math.sin(a))
-        if dist < C.OBSTACLE_RANGE:
-            if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a)):
+        turning = abs(d.get("l", 0) - d.get("r", 0)) > 30   # the cone sweeps everything around
+        if dist < C.OBSTACLE_RANGE and not turning:
+            close = dist < C.STOP_CM + 5          # right in front: certainly real
+            if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a), force=close):
                 self.log(f"obstacle mapped at {dist:.0f} cm ahead")
 
     def robot_online(self):
         return now() - self.tel_t < C.ROBOT_TIMEOUT
 
     # ------------------------------------------------------------ commands
+    def _inside(self, x, y):
+        """Clamp a target to where the robot centre may go (inside the fence)."""
+        f = C.FENCE_CM
+        return (min(max(x, f), self.grid.w_cm - f), min(max(y, f), self.grid.h_cm - f))
+
     def cmd_goto(self, x, y):
+        x, y = self._inside(x, y)
         self.mission = {"type": "goto", "target": (x, y)}
         self.status = "planning"
         self.path = None
@@ -160,7 +219,7 @@ class Brain:
 
     def cmd_set_home(self, x=None, y=None):
         if x is not None:
-            self.home = (x, y)
+            self.home = self._inside(x, y)
         elif self.robot.fresh():
             self.home = (self.robot.x, self.robot.y)
         else:
@@ -204,7 +263,16 @@ class Brain:
             self.status = "robot offline"
             return None
         if not self.robot.fresh():
+            # just lost (e.g. drove out of the camera view): undo the last motion for a moment
+            lost_for = now() - self.robot.t
+            l, r = self.last_drive
+            if lost_for < 1.3 and l + r != 0:
+                self.status = "lost - coming back into view"
+                return ("drive", -40, -40, 250) if l + r > 0 else ("drive", 40, 40, 250)
             self.status = "robot not visible"
+            return ("stop",)
+        if now() - self.robot.t > C.MOTION_POSE_AGE:
+            self.status = "waiting for camera"     # slow camera: stop and look, don't drive blind
             return ("stop",)
 
         target = self._mission_target()
@@ -215,9 +283,9 @@ class Brain:
             want = math.degrees(math.atan2(self.person.y - self.robot.y, self.person.x - self.robot.x))
             err = G.wrap(want - self.robot.th)
             if abs(err) < 20:
+                self.turn_state = None
                 return ("stop",)
-            s = C.TURN_SPEED * self.turn_sign
-            return ("drive", -s, s, 250) if err > 0 else ("drive", s, -s, 250)
+            return self._turn_pulse(err)
 
         dist_goal = math.hypot(target[0] - self.robot.x, target[1] - self.robot.y)
         if dist_goal < C.GOAL_TOL and self.mission["type"] != "follow":
@@ -230,7 +298,14 @@ class Brain:
         # (re)plan when the map changed, the target moved, or periodically
         if (self.path is None or self.plan_version != self.grid.version
                 or t - self.plan_t > C.REPLAN_S):
-            self.path = self.grid.plan((self.robot.x, self.robot.y), target)
+            new = self.grid.plan((self.robot.x, self.robot.y), target)
+            # keep the current route as long as no obstacle blocks it - otherwise two similar
+            # routes around a box take turns and the robot turns back and forth between them
+            if self.path:
+                cur = self._remaining_path(target)
+                if cur and self.grid.path_free(cur):
+                    new = cur
+            self.path = new
             self.plan_t = t
             self.plan_version = self.grid.version
             if self.path is None:
@@ -238,18 +313,21 @@ class Brain:
                 return ("stop",)
 
         # blocked by the robot's own front safety: back off, the map has the obstacle now
-        if t < self.backoff_until or self.tel.get("blocked"):
+        # (no rear sensor: only if there is room inside the arena behind the robot)
+        if (t < self.backoff_until or self.tel.get("blocked")) and self._room_behind():
             self.status = "backing off"
             return ("drive", -45, -45, 300)
 
         cmd = self._follow_path(dist_goal)
         self._check_stuck(t, cmd)
+        if cmd and cmd[0] == "drive":
+            self.last_drive = (cmd[1], cmd[2])
         return cmd
 
     def _check_stuck(self, t, cmd):
         """Driving forward but the camera sees no movement: we hit something the sonar
         can't see (e.g. a box corner beside the robot). Map it and back off."""
-        driving = cmd[0] == "drive" and cmd[1] + cmd[2] > 40
+        driving = bool(cmd) and cmd[0] == "drive" and cmd[1] + cmd[2] > 40
         pt, px, py = self.progress
         if not driving:
             self.progress = (t, self.robot.x, self.robot.y)
@@ -260,8 +338,8 @@ class Brain:
             for da in (-35, 0, 35):
                 a = math.radians(self.robot.th + da)
                 r = C.ROBOT_RADIUS + 3
-                for _ in range(2):
-                    self.grid.add_hit(self.robot.x + r * math.cos(a), self.robot.y + r * math.sin(a))
+                for _ in range(C.MAP_HITS):
+                    self.grid.add_hit(self.robot.x + r * math.cos(a), self.robot.y + r * math.sin(a), force=True)
             self.backoff_until = t + 0.6
             self.log("stuck - marked an obstacle in front, backing off")
         self.progress = (t, self.robot.x, self.robot.y)
@@ -269,7 +347,7 @@ class Brain:
     def _mission_target(self):
         m = self.mission
         if m["type"] in ("goto", "home"):
-            return m["target"]
+            return self._inside(*m["target"])
         # follow: a point FOLLOW_DIST before the person, on the line to the robot
         if not self.person.fresh(1.0):
             self.status = "person not visible"
@@ -278,7 +356,7 @@ class Brain:
         d = math.hypot(dx, dy)
         if d < C.FOLLOW_DIST + 10:
             return "hold"
-        return (self.person.x + dx / d * C.FOLLOW_DIST, self.person.y + dy / d * C.FOLLOW_DIST)
+        return self._inside(self.person.x + dx / d * C.FOLLOW_DIST, self.person.y + dy / d * C.FOLLOW_DIST)
 
     def _lookahead(self):
         """Point LOOKAHEAD cm ahead along the path, starting from the closest segment."""
@@ -304,18 +382,83 @@ class Brain:
             cx, cy = bx, by
         return p[-1]
 
+    def _room_behind(self, d=25.0):
+        a = math.radians(self.robot.th)
+        bx, by = self.robot.x - d * math.cos(a), self.robot.y - d * math.sin(a)
+        return 5 < bx < self.grid.w_cm - 5 and 5 < by < self.grid.h_cm - 5
+
+    def _remaining_path(self, target):
+        """The current route from where the robot is now, ending at the current target."""
+        p = self.path
+        i = next((k for k in range(1, len(p))
+                  if math.hypot(p[k][0] - self.robot.x, p[k][1] - self.robot.y) > 6), None)
+        if i is None:
+            return None
+        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[i:]]
+        if math.hypot(rest[-1][0] - target[0], rest[-1][1] - target[1]) > 10:
+            return None      # the target moved (follow mode): take the new route
+        return rest
+
+    def _next_corner(self):
+        """Polyline mode: aim straight at the next corner of the planned path."""
+        p = self.path
+        for q in p[1:]:
+            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > 6:
+                return q
+        return p[-1]
+
     def _follow_path(self, dist_goal):
-        lx, ly = self._lookahead()
+        lx, ly = self._next_corner() if C.STEER_GAIN <= 0 else self._lookahead()
         want = math.degrees(math.atan2(ly - self.robot.y, lx - self.robot.x))
         err = G.wrap(want - self.robot.th)       # + = target is to the left
+        # polyline driving: when off by more than TURN_IN_PLACE_DEG, stop and turn in pulses
+        # until within ALIGN_DEG, then drive straight again
+        ts = self.turn_state
+        settled = ts is None or now() >= ts["until"]
         if abs(err) > C.TURN_IN_PLACE_DEG:
-            self.status = "turning"
-            s = C.TURN_SPEED * self.turn_sign
-            return ("drive", -s, s, C.DRIVE_MS) if err > 0 else ("drive", s, -s, C.DRIVE_MS)
+            self.aligning = True
+        if self.aligning:
+            if not (settled and abs(err) <= C.ALIGN_DEG):
+                return self._turn_pulse(err)
+            self.aligning = False
+        self.turn_state = None
         self.status = "driving"
         v = C.CRUISE if dist_goal > 40 else max(C.CRUISE_MIN, C.CRUISE * dist_goal / 40)
-        w = C.STEER_GAIN * err * self.turn_sign
+        # only gentle steering while driving - real turns are always pulses
+        lim = C.STEER_MAX * v
+        w = max(-lim, min(lim, C.STEER_GAIN * err)) * self.turn_sign
         return ("drive", int(v - w), int(v + w), C.DRIVE_MS)
+
+    def _turn_pulse(self, err):
+        """Turn on the spot in pulses: turn, stop, wait until the (delayed) camera has seen the
+        result, then decide again - no overshoot. Each settled pulse also checks the turn
+        direction: if the robot keeps turning the wrong way, the sign is flipped automatically
+        (e.g. corner markers laid out clockwise, or motors wired the other way)."""
+        self.status = "turning"
+        t = now()
+        ts = self.turn_state
+        if ts and t < ts["until"]:
+            return None if t < ts["t_end"] else ("stop",)   # pulse running / settling
+        if ts:
+            dth = G.wrap(self.robot.th - ts["th0"])
+            if abs(dth) > 3:
+                if (dth > 0) != (ts["dir"] > 0):
+                    self.wrong_turns += 1
+                    if self.wrong_turns >= 3:
+                        self.turn_sign *= -1
+                        self.wrong_turns = 0
+                        self.log("robot kept turning the wrong way - turn direction flipped")
+                else:
+                    self.wrong_turns = 0
+        d = 1 if err > 0 else -1                     # +1 = turn left (counter-clockwise)
+        ms = int(min(C.TURN_PULSE_MS, max(40, abs(err) * 3)))
+        self.turn_state = {"th0": self.robot.th, "dir": d, "t_end": t + ms / 1000,
+                           "until": t + (ms + C.TURN_SETTLE_MS) / 1000}
+        S = int(C.TURN_SPEED)
+        left = (d > 0) == (self.turn_sign > 0)       # physical direction
+        if C.TURN_PIVOT >= 0.5:                      # around one wheel: half the speed, no jerk
+            return ("drive", 0, S, ms) if left else ("drive", S, 0, ms)
+        return ("drive", -S, S, ms) if left else ("drive", S, -S, ms)
 
     def _calibrate_step(self):
         c = self.calib
@@ -356,9 +499,13 @@ class Brain:
             off = G.wrap(move_dir - th0)
             # the marker may be stuck on rotated: correct the heading by the measured offset
             self.heading_offset = G.wrap(self.heading_offset + off)
-            drift = G.wrap(self.robot.th - th0)
+            drift = G.wrap(self.robot.th - th0) * self.turn_sign   # + = pulled left
+            # ~1.5 % of trim per degree of drift in 0.8 s; drifting right (-) -> weaken the left wheel
+            if abs(drift) >= 2:
+                C.TRIM = max(-30.0, min(30.0, round(C.TRIM - 1.5 * drift, 1)))
             self.log(f"calibration: {d:.0f} cm in 0.8 s ({d / 0.8:.0f} cm/s), marker offset "
-                     f"{off:+.0f} deg (corrected), heading drift {drift:+.0f} deg")
+                     f"{off:+.0f} deg (corrected), drift {drift:+.0f} deg -> straight trim {C.TRIM:+.1f} %"
+                     + (" (press Calibrate again to refine)" if abs(drift) >= 4 else ""))
             self.calib = None
             return ("stop",)
         return ("stop",)
@@ -370,7 +517,8 @@ class Brain:
         return {
             "type": "state",
             "arena": {"w": self.grid.w_cm, "h": self.grid.h_cm, "cell": self.grid.cell,
-                      "cal": cal_ok, "locked": self.cal_locked},
+                      "cal": cal_ok, "locked": self.cal_locked, "auto": self.auto_arena,
+                      "est": [round(v) for v in self.size_est] if self.size_est else None},
             "camera": {"online": now() - self.cam_t < 1.0, "fps": round(self.cam_fps, 1)},
             "robot": {"online": self.robot_online(), "visible": self.robot.fresh(),
                       "pose": self.robot.dict(), **self.tel},
@@ -383,6 +531,7 @@ class Brain:
             "trail": self.trail[-300:],
             "map_version": self.grid.version,
             "events": self.events[-8:],
+            "tune": {k: getattr(C, k) for k in C.TUNABLE},
         }
 
     def map_cells(self):
