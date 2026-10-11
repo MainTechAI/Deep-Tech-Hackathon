@@ -1,5 +1,5 @@
 # Host networking: the app listens on 127.0.0.1:8080 (behind Caddy) and 0.0.0.0:9000
-# (robot TCP); Caddy serves HTTPS on 8443 because 443 is taken by another service.
+# (robot TCP); Caddy serves HTTPS on 443 and gets the certificate via port 80.
 services:
   app:
     build:

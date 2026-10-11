@@ -94,9 +94,8 @@ and boxes the camera doesn't know about.
 ```
 
 The script copies the project, creates `server/.env` with a random `ROBOT_TOKEN` and `CONTROL_KEY`
-on the first run, and starts Docker Compose. Caddy gets a Let's Encrypt certificate (port 80 must
-be open) and serves HTTPS on **8443**, because 443 is used by another service on our host. The
-rover connects to TCP port **9000**. HTTPS is required: phones only give a web page camera access
+on the first run, and starts Docker Compose. Caddy gets a Let's Encrypt certificate and serves
+HTTPS on 443 (ports 80 and 443 must be open). The rover connects to TCP port **9000**. HTTPS is required: phones only give a web page camera access
 on a secure origin.
 
 ### 3. Rover firmware
@@ -122,9 +121,9 @@ joystick, or use the `AUTO` (obstacle avoidance) mode.
    - Measure W (#1→#2) and H (#1→#4) between marker centres and enter them in the console.
    - Raise the corner markers to the height of the rover's marker if you can.
 4. Mount the phone high and steady, at least ~45° above the floor, with all four corners in view.
-5. On the phone, open `https://<domain>:8443/camera.html?key=<CONTROL_KEY>` and tap
+5. On the phone, open `https://<domain>/camera.html?key=<CONTROL_KEY>` and tap
    **Start camera**.
-6. In the console, open `https://<domain>:8443/?key=<CONTROL_KEY>` and press **Calibrate**. When
+6. In the console, open `https://<domain>/?key=<CONTROL_KEY>` and press **Calibrate**. When
    the arena is calibrated, **Lock camera** freezes the calibration.
 
 Anyone can open the console without the key to watch; only the key gives control.

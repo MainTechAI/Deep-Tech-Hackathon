@@ -1,10 +1,7 @@
-{
-	# 443 is used by another service on this host: HTTPS on 8443,
-	# port 80 only for the Let's Encrypt HTTP challenge
-	http_port 80
-	https_port 8443
-}
-
 coolrover.online {
 	reverse_proxy 127.0.0.1:8080
+}
+
+www.coolrover.online {
+	redir https://coolrover.online{uri} permanent
 }
