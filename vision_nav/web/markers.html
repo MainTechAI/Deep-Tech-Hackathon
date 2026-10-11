@@ -13,6 +13,7 @@ body{font-family:system-ui,-apple-system,"SF Pro Text","Segoe UI",sans-serif;mar
 .m b{margin-top:2mm;font-size:12pt}
 .m span{font-size:9pt;color:#555}
 .arrow{font-size:10pt;margin-bottom:1mm}
+@page{size:A4;margin:8mm}
 @media print{.noprint{display:none}body{padding:0}}
 
 /* ---------------------------------------------------------- screen only */
@@ -90,8 +91,8 @@ body{font-family:system-ui,-apple-system,"SF Pro Text","Segoe UI",sans-serif;mar
   </section>
 
   <div class="callout"><span class="dot"></span>
-    <div>Print at <b>100% scale</b> — turn off “fit to page”. Then check one marker with a ruler: the black square
-    must be exactly the size written under it. Keep the white border around each marker.</div>
+    <div>Print on <b>A4 at 100% scale</b>, one marker per page. The exact size is not critical — the arena is
+    measured between marker <b>centres</b> — but keep the white border around each marker and keep the paper flat.</div>
   </div>
 
   <ol class="steps">
@@ -145,8 +146,8 @@ body{font-family:system-ui,-apple-system,"SF Pro Text","Segoe UI",sans-serif;mar
 <script>
 const dict = new AR.Dictionary('ARUCO_4X4_1000');
 const items = [
-  [0, 'robot', 100, true], [1, 'corner (0, 0)', 150], [2, 'corner (W, 0)', 150],
-  [3, 'corner (W, H)', 150], [4, 'corner (0, H)', 150], [5, 'follow me', 150],
+  [0, 'robot', 100, true], [1, 'corner (0, 0)', 130], [2, 'corner (W, 0)', 130],
+  [3, 'corner (W, H)', 130], [4, 'corner (0, H)', 130], [5, 'follow me', 130],
 ];
 for (const [id, label, mm, arrow] of items) {
   const d = document.createElement('div');
