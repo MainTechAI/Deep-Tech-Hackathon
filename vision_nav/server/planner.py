@@ -49,21 +49,16 @@ class Grid:
         return False
 
     def add_free_ray(self, x0, y0, x1, y1):
-        """Sonar saw nothing along this segment: weaken obstacles on it."""
+        """Sonar saw nothing along this segment: forget single (unconfirmed) echoes on it.
+        Confirmed obstacles stay - the sonar cone is wide, so a ray passing right next to a box
+        corner would otherwise erase it and the planned route would flip back and forth.
+        Moved obstacles are removed with Clear map."""
         n = int(math.hypot(x1 - x0, y1 - y0) / (self.cell / 2)) + 1
-        changed = False
         for s in range(n):
             t = s / n
             k = self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
-            v = self.hits.get(k)
-            if v:
-                self.hits[k] = v - 1
-                if v - 1 < 2 <= v:
-                    changed = True
-                if self.hits[k] == 0:
-                    del self.hits[k]
-        if changed:
-            self._changed()
+            if self.hits.get(k) == 1:
+                del self.hits[k]
 
     def toggle_wall(self, x, y):
         k = self.cell_of(x, y)

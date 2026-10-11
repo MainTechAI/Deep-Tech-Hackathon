@@ -31,6 +31,8 @@ WHEEL_BASE = 13.0
 LEFT_GAIN, RIGHT_GAIN = 0.88, 1.0
 DEAD_ZONE = 12           # % below which a wheel doesn't turn
 LATENCY = 0.08
+REVERSED_TURN = False
+CAM_LATENCY = 0.35       # phone camera pipeline delay: frames show the past    # --reversed-turn: the robot turns the opposite way (mirrored arena)
 MARKER = 10.0            # robot marker side, cm
 IMG_W, IMG_H = 1280, 720
 # floor corners -> image: camera stands behind the near (y=0) edge, looking down at ~45 deg
@@ -49,6 +51,14 @@ class Rover:
         self.dist = 999.0
         self.mode = "MANUAL"
         self.bumps = 0
+        self.history = []        # (t, x, y, th) for the delayed camera
+
+    def seen_pose(self):
+        t = time.monotonic() - CAM_LATENCY
+        for ht, x, y, th in reversed(self.history):
+            if ht <= t:
+                return x, y, th
+        return self.x, self.y, self.th
 
     def command(self, l, r, ms):
         self.queue.append((time.monotonic() + LATENCY, l, r, ms))
@@ -100,7 +110,7 @@ class Rover:
             return 0.0 if abs(v) < DEAD_ZONE else v / 100.0 * MAX_SPEED * gain
         vl, vr = wheel(l, LEFT_GAIN), wheel(r, RIGHT_GAIN)
         v = (vl + vr) / 2
-        w = math.degrees((vr - vl) / WHEEL_BASE)
+        w = math.degrees((vr - vl) / WHEEL_BASE) * (-1 if REVERSED_TURN else 1)
         nth = G.wrap(self.th + w * dt)
         nx = self.x + v * dt * math.cos(math.radians(nth))
         ny = self.y + v * dt * math.sin(math.radians(nth))
@@ -109,6 +119,8 @@ class Rover:
         else:
             self.x, self.y = nx, ny
         self.th = nth
+        self.history.append((time.monotonic(), self.x, self.y, self.th))
+        self.history = self.history[-200:]
 
 
 class Person:
@@ -185,9 +197,10 @@ async def camera_link(rover, person, url, marker_rot):
                             if random.random() > 0.03:
                                 markers[str(mid)] = [project(p) for p in square(cx, cy, 90, C.CORNER_MARKER_CM)]
                         if random.random() > 0.05:
-                            mx = rover.x + C.MARKER_FORWARD * math.cos(math.radians(rover.th))
-                            my = rover.y + C.MARKER_FORWARD * math.sin(math.radians(rover.th))
-                            markers["0"] = [project(p) for p in square(mx, my, rover.th + marker_rot, MARKER)]
+                            sx, sy, sth = rover.seen_pose()
+                            mx = sx + C.MARKER_FORWARD * math.cos(math.radians(sth))
+                            my = sy + C.MARKER_FORWARD * math.sin(math.radians(sth))
+                            markers["0"] = [project(p) for p in square(mx, my, sth + marker_rot, MARKER)]
                         if person:
                             px, py = person.pos()
                             markers["5"] = [project(p) for p in square(px, py, 90, 15)]
@@ -220,6 +233,7 @@ async def main():
     ap.add_argument("--person", action="store_true", help="simulate a walking person marker")
     ap.add_argument("--arena", default=None, help="real arena size WxH in cm, e.g. 260x180 "
                     "(tests automatic measuring; the server starts with its default)")
+    ap.add_argument("--reversed-turn", action="store_true", help="robot turns the other way")
     ap.add_argument("--marker-rot", type=float, default=0,
                     help="marker stuck on rotated by this many degrees (tests calibration)")
     a = ap.parse_args()
@@ -228,6 +242,8 @@ async def main():
         W, H = (float(v) for v in a.arena.lower().split("x"))
         CAM = G.homography([(0, 0), (W, 0), (W, H), (0, H)],
                            [(170, 660), (1110, 660), (930, 170), (350, 170)])
+    global REVERSED_TURN
+    REVERSED_TURN = a.reversed_turn
     rover = Rover()
     ws_url = a.server.replace("http", "ws", 1).rstrip("/") + "/ws"
     await asyncio.gather(physics(rover), robot_link(rover, a.robot_host, C.ROBOT_PORT),

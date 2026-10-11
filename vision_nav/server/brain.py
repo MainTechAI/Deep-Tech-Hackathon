@@ -75,7 +75,8 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
-        self.turn_pulse = False
+        self.turn_state = None        # running turn pulse: th0, dir, t_end, until
+        self.wrong_turns = 0
         self.events = []              # messages for the console log
 
     # ------------------------------------------------------------ inputs
@@ -300,7 +301,7 @@ class Brain:
     def _check_stuck(self, t, cmd):
         """Driving forward but the camera sees no movement: we hit something the sonar
         can't see (e.g. a box corner beside the robot). Map it and back off."""
-        driving = cmd[0] == "drive" and cmd[1] + cmd[2] > 40
+        driving = bool(cmd) and cmd[0] == "drive" and cmd[1] + cmd[2] > 40
         pt, px, py = self.progress
         if not driving:
             self.progress = (t, self.robot.x, self.robot.y)
@@ -360,19 +361,40 @@ class Brain:
         want = math.degrees(math.atan2(ly - self.robot.y, lx - self.robot.x))
         err = G.wrap(want - self.robot.th)       # + = target is to the left
         if abs(err) > C.TURN_IN_PLACE_DEG:
-            # turn in pulses - turn, stop, let the camera look - so it doesn't overshoot;
-            # smaller errors get shorter pulses
-            self.status = "turning"
-            self.turn_pulse = not self.turn_pulse
-            if not self.turn_pulse:
-                return ("stop",)
-            ms = int(max(60, min(C.TURN_PULSE_MS, abs(err) * 3)))
-            s = int(C.TURN_SPEED) * self.turn_sign
-            return ("drive", -s, s, ms) if err > 0 else ("drive", s, -s, ms)
+            return self._turn_pulse(err)
+        self.turn_state = None
         self.status = "driving"
         v = C.CRUISE if dist_goal > 40 else max(C.CRUISE_MIN, C.CRUISE * dist_goal / 40)
         w = C.STEER_GAIN * err * self.turn_sign
         return ("drive", int(v - w), int(v + w), C.DRIVE_MS)
+
+    def _turn_pulse(self, err):
+        """Turn on the spot in pulses: turn, stop, wait until the (delayed) camera has seen the
+        result, then decide again - no overshoot. Each settled pulse also checks the turn
+        direction: if the robot keeps turning the wrong way, the sign is flipped automatically
+        (e.g. corner markers laid out clockwise, or motors wired the other way)."""
+        self.status = "turning"
+        t = now()
+        ts = self.turn_state
+        if ts and t < ts["until"]:
+            return None if t < ts["t_end"] else ("stop",)   # pulse running / settling
+        if ts:
+            dth = G.wrap(self.robot.th - ts["th0"])
+            if abs(dth) > 3:
+                if (dth > 0) != (ts["dir"] > 0):
+                    self.wrong_turns += 1
+                    if self.wrong_turns >= 3:
+                        self.turn_sign *= -1
+                        self.wrong_turns = 0
+                        self.log("robot kept turning the wrong way - turn direction flipped")
+                else:
+                    self.wrong_turns = 0
+        d = 1 if err > 0 else -1                     # +1 = turn left (counter-clockwise)
+        ms = int(max(60, min(C.TURN_PULSE_MS, abs(err) * 3)))
+        self.turn_state = {"th0": self.robot.th, "dir": d, "t_end": t + ms / 1000,
+                           "until": t + (ms + C.TURN_SETTLE_MS) / 1000}
+        s = int(C.TURN_SPEED) * self.turn_sign
+        return ("drive", -s, s, ms) if d > 0 else ("drive", s, -s, ms)
 
     def _calibrate_step(self):
         c = self.calib
