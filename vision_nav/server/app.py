@@ -40,7 +40,8 @@ _saved = None
 def snapshot():
     return {"tune": {k: getattr(C, k) for k in C.TUNABLE},
             "turn_sign": brain.turn_sign, "heading_offset": brain.heading_offset,
-            "arena": [brain.grid.w_cm, brain.grid.h_cm] if brain.size_done or not brain.auto_arena else None}
+            "arena": [brain.grid.w_cm, brain.grid.h_cm] if brain.size_done or not brain.auto_arena else None,
+            "arena_auto": brain.auto_arena}
 
 
 def load_settings():
@@ -58,6 +59,7 @@ def load_settings():
     if s.get("arena"):                       # no re-measuring flicker after a restart
         brain.grid.resize(*s["arena"])
         brain.size_done = True
+        brain.auto_arena = s.get("arena_auto", True)
     _saved = snapshot()
     print(f"[app] settings loaded from {SETTINGS}")
 
