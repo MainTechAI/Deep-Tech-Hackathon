@@ -2,33 +2,138 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Vision Nav camera</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Vision Nav · Camera</title>
 <style>
-body{margin:0;background:#000;color:#eee;font-family:system-ui,sans-serif;overflow:hidden}
-#view{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain}
-#bar{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;
-  background:rgba(0,0,0,.55);font-size:13px}
-.pill{padding:3px 9px;border-radius:10px;background:#333}
-.ok{background:#1d5c33}.bad{background:#6b1f1f}.warn{background:#6b561f}
-button,select{background:#2b2f38;color:#eee;border:1px solid #444;border-radius:8px;padding:7px 10px;font-size:14px}
-#start{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:20px;padding:18px 28px;background:#4c8dff;border:0}
-#msg{position:fixed;left:0;right:0;bottom:0;padding:8px 10px;background:rgba(0,0,0,.55);font-size:13px;min-height:18px}
+:root{
+  --font: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --glass: rgba(22,22,26,.62);
+  --glass-2: rgba(255,255,255,.08);
+  --hair: rgba(255,255,255,.12);
+  --text: #f5f5f7;
+  --text-2: rgba(245,245,247,.68);
+  --text-3: rgba(245,245,247,.45);
+  --accent: #0a84ff;
+  --green: #30d158;
+  --amber: #ffb340;
+  --red: #ff453a;
+  --violet: #bf5af2;
+  --dot-idle: rgba(255,255,255,.3);
+  --ease: cubic-bezier(.25,.1,.25,1);
+  --gut: max(12px, env(safe-area-inset-left));
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#000;color:var(--text);font-family:var(--font);overflow:hidden;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+button,select{font:inherit;color:inherit}
+
+#view{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+/* floating glass chrome */
+.glass{background:var(--glass);border:1px solid var(--hair);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);
+  box-shadow:0 8px 30px -12px rgba(0,0,0,.6)}
+
+#bar{position:fixed;z-index:2;top:max(12px, env(safe-area-inset-top));left:var(--gut);right:max(12px, env(safe-area-inset-right));
+  display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:space-between;pointer-events:none}
+#bar > *{pointer-events:auto}
+.status{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:18px;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 11px 0 9px;border-radius:14px;
+  font-size:12.5px;font-weight:500;color:var(--text-2);white-space:nowrap;font-variant-numeric:tabular-nums;
+  transition:color .2s var(--ease),background-color .2s var(--ease)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot-idle);flex:none;
+  transition:background-color .2s var(--ease),box-shadow .2s var(--ease)}
+.pill.ok{color:var(--text)}
+.pill.ok::before{background:var(--green);box-shadow:0 0 0 3px rgba(48,209,88,.22)}
+.pill.warn{color:var(--text)}
+.pill.warn::before{background:var(--amber);box-shadow:0 0 0 3px rgba(255,179,64,.22)}
+.pill.bad{color:var(--text)}
+.pill.bad::before{background:var(--red);box-shadow:0 0 0 3px rgba(255,69,58,.24)}
+
+.ctrls{display:flex;gap:4px;padding:4px;border-radius:18px;margin-left:auto}
+.sel{position:relative;display:flex;align-items:center}
+.sel select{appearance:none;-webkit-appearance:none;height:28px;padding:0 28px 0 12px;border:0;border-radius:14px;
+  background:var(--glass-2);font-size:12.5px;font-weight:500;cursor:pointer;outline:0;font-variant-numeric:tabular-nums}
+.sel select:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.sel svg{position:absolute;right:10px;width:10px;height:10px;pointer-events:none;opacity:.7}
+.sel option{background:#1c1c1e;color:#f5f5f7}
+#flip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px 0 10px;border:0;border-radius:14px;
+  background:var(--glass-2);font-size:12.5px;font-weight:500;cursor:pointer;transition:background-color .15s var(--ease)}
+#flip:active{background:rgba(255,255,255,.18)}
+#flip svg{width:15px;height:15px}
+
+/* idle screen */
+.intro{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;padding:96px 24px 120px;text-align:center;
+  background:radial-gradient(ellipse at 50% 40%, #16181d 0%, #000 70%)}
+.intro .mark{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;
+  background:#1c1d22;border:1px solid var(--hair)}
+.intro .mark svg{width:28px;height:28px}
+.intro h1{margin:0;font-size:28px;font-weight:600;letter-spacing:-.02em}
+.intro p{margin:-8px 0 0;max-width:340px;font-size:15px;line-height:1.45;color:var(--text-2)}
+body.live .intro{opacity:0;visibility:hidden;transition:opacity .4s var(--ease),visibility 0s .4s}
+
+#start{position:fixed;z-index:3;left:50%;top:calc(50% + 110px);transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 28px;border:0;border-radius:28px;
+  background:var(--accent);color:#fff;font-size:17px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+  box-shadow:0 12px 32px -10px rgba(10,132,255,.7);transition:transform .15s var(--ease),filter .2s var(--ease)}
+#start:active{transform:translateX(-50%) scale(.97)}
+#start svg{width:20px;height:20px}
+
+#msg{position:fixed;z-index:2;left:50%;transform:translateX(-50%);bottom:max(16px, env(safe-area-inset-bottom));
+  width:max-content;max-width:calc(100% - 24px);padding:10px 18px;border-radius:20px;
+  font-size:13.5px;line-height:1.4;text-align:center;color:var(--text);min-height:20px}
+
+@media (max-width:520px){
+  .status{flex:1 1 100%;justify-content:flex-start}
+  .ctrls{margin-left:0}
+  .pill{padding:0 9px 0 8px;font-size:12px}
+  .intro h1{font-size:24px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  .intro{gap:12px;padding:64px 24px 80px}
+  .intro .mark{display:none}
+  #start{top:calc(50% + 70px)}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
-<div id="bar">
-  <span class="pill" id="pWs">server</span>
-  <span class="pill" id="pFps">0 fps</span>
-  <span class="pill" id="pCorners">corners 0/4</span>
-  <span class="pill" id="pRobot">robot</span>
-  <span class="pill" id="pPerson">person</span>
-  <select id="res"><option value="640">640 px</option><option value="960" selected>960 px</option><option value="1280">1280 px</option></select>
-  <button id="flip">switch camera</button>
+
+<div class="intro" aria-hidden="true">
+  <div class="mark"><svg viewBox="0 0 28 28"><path d="M14 4.5 21.5 21 14 17 6.5 21Z" fill="#0a84ff"/></svg></div>
+  <h1>Overhead camera</h1>
+  <p>Mount the phone high and steady, then aim it at the arena so all four corner markers are in view.</p>
 </div>
-<button id="start">Start camera</button>
-<div id="msg">Mount the phone high and steady, aim it at the arena so all 4 corner markers are visible.</div>
+
+<div id="bar">
+  <div class="status glass">
+    <span class="pill" id="pWs">Server</span>
+    <span class="pill" id="pFps">0 fps</span>
+    <span class="pill" id="pCorners">Corners 0/4</span>
+    <span class="pill" id="pRobot">Robot</span>
+    <span class="pill" id="pPerson">Person</span>
+  </div>
+  <div class="ctrls glass">
+    <label class="sel" aria-label="Detection resolution">
+      <select id="res"><option value="640">640 px</option><option value="960" selected>960 px</option><option value="1280">1280 px</option></select>
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </label>
+    <button id="flip" aria-label="Switch camera">
+      <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A6.5 6.5 0 0 1 15.4 6M16.5 11.5A6.5 6.5 0 0 1 4.6 14"/><path d="M15.8 2.8v3.5h-3.5M4.2 17.2v-3.5h3.5"/></svg>
+      Switch
+    </button>
+  </div>
+</div>
+
+<button id="start">
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2.3l1.6-2.2h7.2L17.2 7h2.3A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/><circle cx="12" cy="12.8" r="3.6"/></svg>
+  Start camera
+</button>
+<div id="msg" class="glass">Landscape works best. The screen stays awake while the camera runs.</div>
 <video id="video" playsinline muted style="display:none"></video>
 <script src="vendor/cv.js"></script>
 <script src="vendor/aruco.js"></script>
@@ -38,12 +143,18 @@ const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 let key = qs.get('key');
 try { if (key) localStorage.setItem('vnKey', key); else key = localStorage.getItem('vnKey') || ''; } catch (e) {}
+// remember the key, then hide it from the address bar (it must not show on a projector)
+if (qs.has('key')) { qs.delete('key'); history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : '') + location.hash); }
 
 const detector = new AR.Detector({dictionaryName: 'ARUCO_4X4_1000'});
 const video = $('video'), view = $('view'), vctx = view.getContext('2d');
 const work = document.createElement('canvas'), wctx = work.getContext('2d', {willReadFrequently: true});
 let ws, overlay = null, facing = 'environment', stream = null, frames = 0, fps = 0, lastFpsT = performance.now();
 let lastSent = 0, wakeLock = null, control = false, loopTimer = null;
+
+// overlay palette (matches the console)
+const C = {accent: '#0a84ff', green: '#30d158', amber: '#ffb340', red: '#ff453a', violet: '#bf5af2', idle: '#8e8e93'};
+const FONT = 'system-ui, -apple-system, "SF Pro Text", sans-serif';
 
 // ---------------------------------------------------------------- server link
 function connect() {
@@ -75,6 +186,7 @@ async function startCamera() {
   video.srcObject = stream;
   await video.play();
   $('start').style.display = 'none';
+  document.body.classList.add('live');
   try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
   if (!loopTimer) loopTimer = setInterval(loop, 15);   // a timer keeps running when the tab is hidden
 }
@@ -106,7 +218,7 @@ function loop() {
     ws.send(JSON.stringify({type: 'frame', w: pw, h: ph, markers}));
 
   // display: the video with detections and the server's plan drawn on top
-  if (view.width !== innerWidth * devicePixelRatio) {
+  if (view.width !== innerWidth * devicePixelRatio || view.height !== innerHeight * devicePixelRatio) {
     view.width = innerWidth * devicePixelRatio; view.height = innerHeight * devicePixelRatio;
   }
   const s = Math.min(view.width / pw, view.height / ph);
@@ -115,29 +227,40 @@ function loop() {
   vctx.fillStyle = '#000'; vctx.fillRect(0, 0, view.width, view.height);
   vctx.drawImage(work, ox, oy, pw * s, ph * s);
   drawOverlay(P);
-  vctx.lineWidth = 3 * devicePixelRatio; vctx.font = `bold ${16 * devicePixelRatio}px system-ui`;
+  const d = devicePixelRatio;
+  vctx.lineJoin = 'round'; vctx.lineCap = 'round';
   for (const m of found) {
-    const col = m.id === 0 ? '#4c8dff' : m.id === 5 ? '#a46bff' : m.id <= 4 ? '#3ccf6e' : '#888';
-    vctx.strokeStyle = col; vctx.beginPath();
+    const col = m.id === 0 ? C.accent : m.id === 5 ? C.violet : m.id <= 4 ? C.green : C.idle;
+    // soft fill + crisp outline
+    vctx.beginPath();
     m.corners.forEach((c, i) => { const [x, y] = P([c.x, c.y]); i ? vctx.lineTo(x, y) : vctx.moveTo(x, y); });
-    vctx.closePath(); vctx.stroke();
+    vctx.closePath();
+    vctx.globalAlpha = .18; vctx.fillStyle = col; vctx.fill(); vctx.globalAlpha = 1;
+    vctx.lineWidth = 2.5 * d; vctx.strokeStyle = col; vctx.stroke();
     // top edge (marker "forward") in white
     const [ax, ay] = P([m.corners[0].x, m.corners[0].y]), [bx, by] = P([m.corners[1].x, m.corners[1].y]);
-    vctx.strokeStyle = '#fff'; vctx.beginPath(); vctx.moveTo(ax, ay); vctx.lineTo(bx, by); vctx.stroke();
-    vctx.fillStyle = col; vctx.fillText('#' + m.id, ax, ay - 6 * devicePixelRatio);
+    vctx.lineWidth = 3 * d; vctx.strokeStyle = '#fff'; vctx.beginPath(); vctx.moveTo(ax, ay); vctx.lineTo(bx, by); vctx.stroke();
+    // id tag
+    const t = '#' + m.id; vctx.font = `600 ${12 * d}px ${FONT}`;
+    const tw = vctx.measureText(t).width + 12 * d, th = 20 * d, tx = ax, ty = ay - th - 6 * d;
+    vctx.fillStyle = col; vctx.beginPath();
+    if (vctx.roundRect) vctx.roundRect(tx, ty, tw, th, th / 2); else vctx.rect(tx, ty, tw, th);
+    vctx.fill();
+    vctx.fillStyle = '#fff'; vctx.textBaseline = 'middle'; vctx.fillText(t, tx + 6 * d, ty + th / 2 + .5 * d);
+    vctx.textBaseline = 'alphabetic';
   }
 
   frames++;
   if (now - lastFpsT > 1000) { fps = frames * 1000 / (now - lastFpsT); frames = 0; lastFpsT = now; }
   const corners = [1, 2, 3, 4].filter(i => markers[i]).length;
   setPill('pWs', ws.readyState === 1 ? (control ? 'ok' : 'warn') : 'bad',
-    ws.readyState === 1 ? (control ? 'server' : 'server (no key!)') : 'server offline');
+    ws.readyState === 1 ? (control ? 'Server' : 'Server (no key!)') : 'Server offline');
   setPill('pFps', fps > 8 ? 'ok' : 'warn', fps.toFixed(0) + ' fps');
-  setPill('pCorners', corners === 4 ? 'ok' : 'warn', 'corners ' + corners + '/4');
-  setPill('pRobot', markers[0] ? 'ok' : 'bad', markers[0] ? 'robot' : 'no robot');
-  setPill('pPerson', markers[5] ? 'ok' : '', markers[5] ? 'person' : 'no person');
+  setPill('pCorners', corners === 4 ? 'ok' : 'warn', 'Corners ' + corners + '/4');
+  setPill('pRobot', markers[0] ? 'ok' : 'bad', markers[0] ? 'Robot' : 'No robot');
+  setPill('pPerson', markers[5] ? 'ok' : '', markers[5] ? 'Person' : 'No person');
   $('msg').textContent = overlay ? 'Server: ' + overlay.status : (corners < 4
-    ? 'Show all 4 corner markers to calibrate the arena.' : 'Calibrating...');
+    ? 'Show all 4 corner markers to calibrate the arena.' : 'Calibrating…');
 }
 function setPill(id, cls, text) { const el = $(id); el.className = 'pill ' + cls; el.textContent = text; }
 
@@ -145,15 +268,22 @@ function drawOverlay(P) {
   if (!overlay) return;
   const d = devicePixelRatio;
   const poly = (pts, close) => { vctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? vctx.lineTo(x, y) : vctx.moveTo(x, y); }); if (close) vctx.closePath(); };
-  vctx.lineWidth = 2 * d; vctx.strokeStyle = 'rgba(255,255,255,.5)'; poly(overlay.arena, true); vctx.stroke();
-  vctx.fillStyle = 'rgba(239,79,79,.8)';
+  vctx.lineJoin = 'round'; vctx.lineCap = 'round';
+  vctx.lineWidth = 1.5 * d; vctx.strokeStyle = 'rgba(255,255,255,.65)'; vctx.setLineDash([6 * d, 6 * d]);
+  poly(overlay.arena, true); vctx.stroke(); vctx.setLineDash([]);
+  vctx.fillStyle = 'rgba(255,69,58,.85)';
   for (const c of overlay.cells) { const [x, y] = P(c); vctx.fillRect(x - 4 * d, y - 4 * d, 8 * d, 8 * d); }
   if (overlay.path.length) {
-    vctx.lineWidth = 4 * d; vctx.strokeStyle = '#3ccf6e'; vctx.setLineDash([10 * d, 8 * d]);
-    poly(overlay.path, false); vctx.stroke(); vctx.setLineDash([]);
+    vctx.globalAlpha = .3; vctx.lineWidth = 12 * d; vctx.strokeStyle = C.accent; poly(overlay.path, false); vctx.stroke();
+    vctx.globalAlpha = 1; vctx.lineWidth = 4 * d; poly(overlay.path, false); vctx.stroke();
   }
-  if (overlay.target) { const [x, y] = P(overlay.target); vctx.fillStyle = '#3ccf6e'; vctx.beginPath(); vctx.arc(x, y, 9 * d, 0, 7); vctx.fill(); }
-  if (overlay.home) { const [x, y] = P(overlay.home); vctx.strokeStyle = '#f5b83d'; vctx.lineWidth = 3 * d; vctx.beginPath(); vctx.arc(x, y, 10 * d, 0, 7); vctx.stroke(); }
+  if (overlay.target) {
+    const [x, y] = P(overlay.target);
+    vctx.fillStyle = C.accent; vctx.globalAlpha = .25; vctx.beginPath(); vctx.arc(x, y, 18 * d, 0, 7); vctx.fill();
+    vctx.globalAlpha = 1; vctx.beginPath(); vctx.arc(x, y, 8 * d, 0, 7); vctx.fill();
+    vctx.strokeStyle = '#fff'; vctx.lineWidth = 2.5 * d; vctx.stroke();
+  }
+  if (overlay.home) { const [x, y] = P(overlay.home); vctx.strokeStyle = C.amber; vctx.lineWidth = 3 * d; vctx.beginPath(); vctx.arc(x, y, 10 * d, 0, 7); vctx.stroke(); }
 }
 </script>
 </body>

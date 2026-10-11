@@ -174,7 +174,12 @@ async def camera_link(rover, person, url, marker_rot):
                 async with s.ws_connect(url) as ws:
                     await ws.send_json({"type": "hello", "role": "camera", "key": C.CONTROL_KEY})
                     print("[sim camera] connected")
-                    while True:
+
+                    async def drain():   # reading keeps the server's heartbeat pings answered
+                        async for _ in ws:
+                            pass
+                    reader = asyncio.ensure_future(drain())
+                    while not reader.done():
                         markers = {}
                         for mid, (cx, cy) in corners_world.items():
                             if random.random() > 0.03:
@@ -188,6 +193,7 @@ async def camera_link(rover, person, url, marker_rot):
                             markers["5"] = [project(p) for p in square(px, py, 90, 15)]
                         await ws.send_json({"type": "frame", "w": IMG_W, "h": IMG_H, "markers": markers})
                         await asyncio.sleep(1 / 12)
+                    print("[sim camera] disconnected")
             except (aiohttp.ClientError, ConnectionError, OSError) as e:
                 print("[sim camera]", e)
             await asyncio.sleep(2)
