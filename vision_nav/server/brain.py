@@ -42,6 +42,9 @@ class Brain:
         self.cal_t = 0.0
         self.cal_locked = False
         self.img_size = (0, 0)
+        self.auto_arena = True        # measure W x H from the corner markers' printed size
+        self.size_est = None
+        self.size_n = 0
         self.cam_t = 0.0
         self.cam_fps = 0.0
         self.robot = Pose()           # robot centre (wheel axle)
@@ -69,7 +72,9 @@ class Brain:
         self.events = self.events[-30:]
         print("[brain]", msg)
 
-    def set_arena(self, w, h):
+    def set_arena(self, w, h, auto=False):
+        if not auto:
+            self.auto_arena = False   # typed in by hand: stop measuring
         self.grid.resize(w, h)
         self.cal_locked = False
         self.h_img2floor = None
@@ -87,6 +92,8 @@ class Brain:
         self.img_size = (w, h)
 
         corners = [markers.get(i) for i in C.CORNER_MARKERS]
+        if not self.cal_locked and all(corners) and self.auto_arena:
+            self._measure_arena(corners)
         if not self.cal_locked and all(corners):
             W, H = self.grid.w_cm, self.grid.h_cm
             src = [G.centre(c) for c in corners]
@@ -117,6 +124,32 @@ class Brain:
         if C.FOLLOW_MARKER in markers:
             x, y, th = G.marker_pose(self.h_img2floor, markers[C.FOLLOW_MARKER])
             self.person.update(x, y, th, alpha=0.4)
+
+    def _measure_arena(self, corners):
+        try:
+            est = G.arena_size(corners, C.CORNER_MARKER_CM)
+        except ValueError:
+            return
+        if not est or not (30 < est[0] < 2000 and 30 < est[1] < 2000):
+            return
+        if self.size_est is None:
+            self.size_est = est
+        else:   # average over many frames, single-pixel noise matters at this scale
+            a = 0.08
+            self.size_est = (self.size_est[0] + a * (est[0] - self.size_est[0]),
+                             self.size_est[1] + a * (est[1] - self.size_est[1]))
+        self.size_n += 1
+        w, h = self.size_est
+        if self.size_n >= 20 and (abs(w - self.grid.w_cm) > 3 or abs(h - self.grid.h_cm) > 3):
+            self.set_arena(round(w), round(h), auto=True)
+            self.log("arena measured from the corner markers")
+
+    def cmd_arena_auto(self):
+        self.auto_arena = True
+        self.size_est = None
+        self.size_n = 0
+        self.cal_locked = False
+        self.log(f"measuring the arena (corner markers = {C.CORNER_MARKER_CM:g} cm)")
 
     def telemetry(self, d):
         self.tel = d
@@ -370,7 +403,8 @@ class Brain:
         return {
             "type": "state",
             "arena": {"w": self.grid.w_cm, "h": self.grid.h_cm, "cell": self.grid.cell,
-                      "cal": cal_ok, "locked": self.cal_locked},
+                      "cal": cal_ok, "locked": self.cal_locked, "auto": self.auto_arena,
+                      "est": [round(v) for v in self.size_est] if self.size_est else None},
             "camera": {"online": now() - self.cam_t < 1.0, "fps": round(self.cam_fps, 1)},
             "robot": {"online": self.robot_online(), "visible": self.robot.fresh(),
                       "pose": self.robot.dict(), **self.tel},

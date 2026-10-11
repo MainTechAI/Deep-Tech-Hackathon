@@ -183,7 +183,7 @@ async def camera_link(rover, person, url, marker_rot):
                         markers = {}
                         for mid, (cx, cy) in corners_world.items():
                             if random.random() > 0.03:
-                                markers[str(mid)] = [project(p) for p in square(cx, cy, 90, 15)]
+                                markers[str(mid)] = [project(p) for p in square(cx, cy, 90, C.CORNER_MARKER_CM)]
                         if random.random() > 0.05:
                             mx = rover.x + C.MARKER_FORWARD * math.cos(math.radians(rover.th))
                             my = rover.y + C.MARKER_FORWARD * math.sin(math.radians(rover.th))
@@ -218,9 +218,16 @@ async def main():
     ap.add_argument("--server", default="http://localhost:8080")
     ap.add_argument("--robot-host", default="localhost")
     ap.add_argument("--person", action="store_true", help="simulate a walking person marker")
+    ap.add_argument("--arena", default=None, help="real arena size WxH in cm, e.g. 260x180 "
+                    "(tests automatic measuring; the server starts with its default)")
     ap.add_argument("--marker-rot", type=float, default=0,
                     help="marker stuck on rotated by this many degrees (tests calibration)")
     a = ap.parse_args()
+    if a.arena:
+        global W, H, CAM
+        W, H = (float(v) for v in a.arena.lower().split("x"))
+        CAM = G.homography([(0, 0), (W, 0), (W, H), (0, H)],
+                           [(170, 660), (1110, 660), (930, 170), (350, 170)])
     rover = Rover()
     ws_url = a.server.replace("http", "ws", 1).rstrip("/") + "/ws"
     await asyncio.gather(physics(rover), robot_link(rover, a.robot_host, C.ROBOT_PORT),

@@ -352,13 +352,15 @@ kbd{font:500 11px var(--font);min-width:22px;height:22px;padding:0 6px;display:i
 
   <div class="lower">
     <section class="card">
-      <div class="card-h"><h2>Arena</h2><span class="aux">between corner markers</span></div>
+      <div class="card-h"><h2>Arena</h2><span class="aux" id="arenaMode">between corner markers</span></div>
       <div class="arena">
         <label class="field">Width<span class="input"><input id="aw" type="number" inputmode="decimal"><em>cm</em></span></label>
         <label class="field">Height<span class="input"><input id="ah" type="number" inputmode="decimal"><em>cm</em></span></label>
         <button class="btn" id="bArena">Apply</button>
+        <button class="btn" id="bArenaAuto">Measure automatically</button>
       </div>
-      <p class="note">Measure centre to centre: #1 → #2 is width, #1 → #4 is height.</p>
+      <p class="note">Measured automatically from the printed size of the corner markers. To set it by hand, measure
+        centre to centre (#1 → #2 width, #1 → #4 height) and press Apply.</p>
     </section>
 
     <section class="card events">
@@ -592,7 +594,10 @@ function updatePanel() {
   if (document.activeElement !== $('aw') && document.activeElement !== $('ah')) { $('aw').value = S.arena.w; $('ah').value = S.arena.h; }
   const log = S.events.join('\n');
   if (log !== lastLog) { $('log').textContent = log; $('log').scrollTop = 1e9; lastLog = log; }
-  document.querySelectorAll('aside button, .seg button, #bArena').forEach(b => b.disabled = !control);
+  $('arenaMode').textContent = S.arena.auto
+    ? (S.arena.locked ? 'measured automatically' : 'measuring automatically\u2026') : 'set by hand';
+  $('bArenaAuto').style.display = S.arena.auto ? 'none' : '';
+  document.querySelectorAll('aside button, .seg button, #bArena, #bArenaAuto').forEach(b => b.disabled = !control);
 }
 
 // ---------------------------------------------------------------- input
@@ -618,6 +623,7 @@ $('bCalib').onclick = () => send({type: 'calibrate'});
 $('bClear').onclick = () => confirm('Clear the obstacle map and trail?') && send({type: 'clear'});
 $('bLock').onclick = () => send({type: 'lock', on: !(S && S.arena.locked)});
 $('bBeep').onclick = () => send({type: 'beep'});
+$('bArenaAuto').onclick = () => send({type: 'arena_auto'});
 $('bArena').onclick = () => send({type: 'arena', w: +$('aw').value, h: +$('ah').value});
 
 // joystick + keyboard -> {type:'joy'} at 10 Hz while active

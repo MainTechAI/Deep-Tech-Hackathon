@@ -34,6 +34,8 @@ CONTROL_KEY = _get("CONTROL_KEY", "dev")       # browsers need ?key=... to contr
 ROBOT_MARKER = 0                # on top of the robot, its top edge pointing forward
 CORNER_MARKERS = (1, 2, 3, 4)   # arena corners: (0,0) (W,0) (W,H) (0,H), counter-clockwise
 FOLLOW_MARKER = 5               # held by the person to follow
+# printed size of the black square of corner markers: used to measure the arena automatically
+CORNER_MARKER_CM = _get("CORNER_MARKER_CM", 13.0, float)
 
 # ---- arena (cm, between corner marker centres) ----
 ARENA_W = _get("ARENA_W", 300.0, float)

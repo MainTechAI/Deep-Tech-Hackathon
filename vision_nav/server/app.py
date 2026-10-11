@@ -133,6 +133,8 @@ async def handle_console_msg(m):
         brain.grid.toggle_wall(float(m["x"]), float(m["y"]))
     elif t == "arena":
         brain.set_arena(float(m["w"]), float(m["h"]))
+    elif t == "arena_auto":
+        brain.cmd_arena_auto()
     elif t == "lock":
         brain.cal_locked = bool(m.get("on")) and brain.h_img2floor is not None
         brain.log("camera calibration " + ("locked" if brain.cal_locked else "unlocked"))
