@@ -45,6 +45,7 @@ class Brain:
         self.auto_arena = True        # measure W x H from the corner markers' printed size
         self.size_est = None
         self.size_n = 0
+        self.size_done = False        # measured once; re-measuring would clear the map
         self.cam_t = 0.0
         self.cam_fps = 0.0
         self.robot = Pose()           # robot centre (wheel axle)
@@ -93,7 +94,7 @@ class Brain:
         self.img_size = (w, h)
 
         corners = [markers.get(i) for i in C.CORNER_MARKERS]
-        if not self.cal_locked and all(corners) and self.auto_arena:
+        if not self.cal_locked and all(corners) and self.auto_arena and not self.size_done:
             self._measure_arena(corners)
         if not self.cal_locked and all(corners):
             W, H = self.grid.w_cm, self.grid.h_cm
@@ -141,14 +142,17 @@ class Brain:
                              self.size_est[1] + a * (est[1] - self.size_est[1]))
         self.size_n += 1
         w, h = self.size_est
-        if self.size_n >= 20 and (abs(w - self.grid.w_cm) > 3 or abs(h - self.grid.h_cm) > 3):
-            self.set_arena(round(w), round(h), auto=True)
-            self.log("arena measured from the corner markers")
+        if self.size_n >= 40:          # ~3 s of frames averaged: apply once and stop
+            self.size_done = True
+            if abs(w - self.grid.w_cm) > 2 or abs(h - self.grid.h_cm) > 2:
+                self.set_arena(round(w), round(h), auto=True)
+            self.log(f"arena measured: {w:.0f} x {h:.0f} cm")
 
     def cmd_arena_auto(self):
         self.auto_arena = True
         self.size_est = None
         self.size_n = 0
+        self.size_done = False
         self.cal_locked = False
         self.log(f"measuring the arena (corner markers = {C.CORNER_MARKER_CM:g} cm)")
 

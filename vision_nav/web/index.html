@@ -605,7 +605,7 @@ function updatePanel() {
   if (log !== lastLog) { $('log').textContent = log; $('log').scrollTop = 1e9; lastLog = log; }
   $('arenaMode').textContent = S.arena.auto
     ? (S.arena.locked ? 'measured automatically' : 'measuring automatically\u2026') : 'set by hand';
-  $('bArenaAuto').style.display = S.arena.auto ? 'none' : '';
+  $('bArenaAuto').textContent = S.arena.auto ? 'Measure again' : 'Measure automatically';
   renderTune();
   document.querySelectorAll('aside button, .seg button, #bArena, #bArenaAuto').forEach(b => b.disabled = !control);
 }
