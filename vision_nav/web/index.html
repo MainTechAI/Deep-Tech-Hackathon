@@ -216,6 +216,8 @@ kbd{font:500 11px var(--font);min-width:22px;height:22px;padding:0 6px;display:i
 .input input::-webkit-outer-spin-button,.input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .input em{font-style:normal;color:var(--text-3);font-size:13px}
 #bArena{grid-column:span 2;margin-top:var(--s1)}
+.tune-card{grid-column:1/-1}
+.tune{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s2)}
 .note{font-size:12px;color:var(--text-3);margin:var(--s3) 0 0;line-height:1.45}
 
 /* events */
@@ -361,6 +363,13 @@ kbd{font:500 11px var(--font);min-width:22px;height:22px;padding:0 6px;display:i
       </div>
       <p class="note">Measured automatically from the printed size of the corner markers. To set it by hand, measure
         centre to centre (#1 → #2 width, #1 → #4 height) and press Apply.</p>
+    </section>
+
+    <section class="card tune-card">
+      <div class="card-h"><h2>Tuning</h2><span class="aux">applies instantly, resets on server restart</span></div>
+      <div class="tune" id="tune"></div>
+      <p class="note">Robot turns too fast or overshoots: lower Turn speed or Turn pulse. Weaves left and right
+        while driving: lower Steering. Doesn't move: raise the speeds.</p>
     </section>
 
     <section class="card events">
@@ -597,6 +606,7 @@ function updatePanel() {
   $('arenaMode').textContent = S.arena.auto
     ? (S.arena.locked ? 'measured automatically' : 'measuring automatically\u2026') : 'set by hand';
   $('bArenaAuto').style.display = S.arena.auto ? 'none' : '';
+  renderTune();
   document.querySelectorAll('aside button, .seg button, #bArena, #bArenaAuto').forEach(b => b.disabled = !control);
 }
 
@@ -623,6 +633,25 @@ $('bCalib').onclick = () => send({type: 'calibrate'});
 $('bClear').onclick = () => confirm('Clear the obstacle map and trail?') && send({type: 'clear'});
 $('bLock').onclick = () => send({type: 'lock', on: !(S && S.arena.locked)});
 $('bBeep').onclick = () => send({type: 'beep'});
+// live tuning: one number field per server setting
+const TUNE = [['CRUISE', 'Drive speed', '%'], ['CRUISE_MIN', 'Speed near goal', '%'], ['TURN_SPEED', 'Turn speed', '%'],
+  ['TURN_PULSE_MS', 'Turn pulse', 'ms'], ['STEER_GAIN', 'Steering', '%/\u00b0'], ['TURN_IN_PLACE_DEG', 'Turn on spot above', '\u00b0'],
+  ['LOOKAHEAD', 'Look ahead', 'cm'], ['GOAL_TOL', 'Arrive within', 'cm'], ['FOLLOW_DIST', 'Follow distance', 'cm']];
+let tuneBuilt = false;
+function renderTune() {
+  if (!S.tune) return;
+  if (!tuneBuilt) {
+    $('tune').innerHTML = TUNE.map(([k, label, unit]) =>
+      `<label class="field">${label}<span class="input"><input data-tune="${k}" type="number" step="any" inputmode="decimal"><em>${unit}</em></span></label>`).join('');
+    $('tune').querySelectorAll('input').forEach(inp => inp.onchange = () =>
+      send({type: 'tune', key: inp.dataset.tune, value: +inp.value}));
+    tuneBuilt = true;
+  }
+  $('tune').querySelectorAll('input').forEach(inp => {
+    if (document.activeElement !== inp) inp.value = S.tune[inp.dataset.tune];
+    inp.disabled = !control;
+  });
+}
 $('bArenaAuto').onclick = () => send({type: 'arena_auto'});
 $('bArena').onclick = () => send({type: 'arena', w: +$('aw').value, h: +$('ah').value});
 

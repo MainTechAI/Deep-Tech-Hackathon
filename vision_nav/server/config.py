@@ -54,12 +54,21 @@ ROBOT_TIMEOUT = 1.5             # s without telemetry -> robot offline
 DRIVE_MS = 400                  # every drive command expires after this (robot watchdog)
 CRUISE = 55                     # % forward speed
 CRUISE_MIN = 35                 # % near the goal
-TURN_SPEED = 55                 # % for turning on the spot
+TURN_SPEED = 45                 # % for turning on the spot
 TURN_IN_PLACE_DEG = 35          # heading error above which the robot turns on the spot
-STEER_GAIN = 0.8                # % wheel difference per degree of heading error
+STEER_GAIN = 0.6                # % wheel difference per degree of heading error
+TURN_PULSE_MS = 150             # on-the-spot turns are pulses (turn, stop, look) of at most this
+MOTION_POSE_AGE = 0.3           # s: with an older camera pose the robot waits instead of driving blind
 LOOKAHEAD = 25.0                # cm along the path
 GOAL_TOL = 8.0                  # cm
 FOLLOW_DIST = 45.0              # cm to keep from the person
 OBSTACLE_RANGE = 60.0           # sonar hits closer than this go on the map
 FREE_RANGE = 80.0               # sonar ray is free space up to this far
 REPLAN_S = 0.5
+
+# Settings the console may change live (name: (min, max))
+TUNABLE = {
+    "CRUISE": (15, 100), "CRUISE_MIN": (10, 100), "TURN_SPEED": (15, 100),
+    "STEER_GAIN": (0.0, 3.0), "TURN_IN_PLACE_DEG": (10, 90), "TURN_PULSE_MS": (40, 600),
+    "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150),
+}

@@ -133,6 +133,13 @@ async def handle_console_msg(m):
         brain.grid.toggle_wall(float(m["x"]), float(m["y"]))
     elif t == "arena":
         brain.set_arena(float(m["w"]), float(m["h"]))
+    elif t == "tune":
+        k = m.get("key")
+        if k in C.TUNABLE:
+            lo, hi = C.TUNABLE[k]
+            v = max(lo, min(hi, float(m["value"])))
+            setattr(C, k, int(v) if isinstance(getattr(C, k), int) else v)
+            brain.log(f"{k} = {getattr(C, k)}")
     elif t == "arena_auto":
         brain.cmd_arena_auto()
     elif t == "lock":

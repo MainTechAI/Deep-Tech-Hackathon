@@ -64,6 +64,7 @@ class Brain:
         self.calib = None             # running auto-calibration state
         self.progress = (0.0, 0.0, 0.0)   # (t, x, y) checkpoint for stuck detection
         self.backoff_until = 0.0
+        self.turn_pulse = False
         self.events = []              # messages for the console log
 
     # ------------------------------------------------------------ inputs
@@ -239,6 +240,9 @@ class Brain:
         if not self.robot.fresh():
             self.status = "robot not visible"
             return ("stop",)
+        if now() - self.robot.t > C.MOTION_POSE_AGE:
+            self.status = "waiting for camera"     # slow camera: stop and look, don't drive blind
+            return ("stop",)
 
         target = self._mission_target()
         if target is None:
@@ -342,9 +346,15 @@ class Brain:
         want = math.degrees(math.atan2(ly - self.robot.y, lx - self.robot.x))
         err = G.wrap(want - self.robot.th)       # + = target is to the left
         if abs(err) > C.TURN_IN_PLACE_DEG:
+            # turn in pulses - turn, stop, let the camera look - so it doesn't overshoot;
+            # smaller errors get shorter pulses
             self.status = "turning"
-            s = C.TURN_SPEED * self.turn_sign
-            return ("drive", -s, s, C.DRIVE_MS) if err > 0 else ("drive", s, -s, C.DRIVE_MS)
+            self.turn_pulse = not self.turn_pulse
+            if not self.turn_pulse:
+                return ("stop",)
+            ms = int(max(60, min(C.TURN_PULSE_MS, abs(err) * 3)))
+            s = int(C.TURN_SPEED) * self.turn_sign
+            return ("drive", -s, s, ms) if err > 0 else ("drive", s, -s, ms)
         self.status = "driving"
         v = C.CRUISE if dist_goal > 40 else max(C.CRUISE_MIN, C.CRUISE * dist_goal / 40)
         w = C.STEER_GAIN * err * self.turn_sign
@@ -417,6 +427,7 @@ class Brain:
             "trail": self.trail[-300:],
             "map_version": self.grid.version,
             "events": self.events[-8:],
+            "tune": {k: getattr(C, k) for k in C.TUNABLE},
         }
 
     def map_cells(self):
