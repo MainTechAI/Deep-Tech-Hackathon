@@ -268,9 +268,9 @@ class Brain:
             want = math.degrees(math.atan2(self.person.y - self.robot.y, self.person.x - self.robot.x))
             err = G.wrap(want - self.robot.th)
             if abs(err) < 20:
+                self.turn_state = None
                 return ("stop",)
-            s = C.TURN_SPEED * self.turn_sign
-            return ("drive", -s, s, 250) if err > 0 else ("drive", s, -s, 250)
+            return self._turn_pulse(err)
 
         dist_goal = math.hypot(target[0] - self.robot.x, target[1] - self.robot.y)
         if dist_goal < C.GOAL_TOL and self.mission["type"] != "follow":
@@ -366,7 +366,9 @@ class Brain:
         self.turn_state = None
         self.status = "driving"
         v = C.CRUISE if dist_goal > 40 else max(C.CRUISE_MIN, C.CRUISE * dist_goal / 40)
-        w = C.STEER_GAIN * err * self.turn_sign
+        # only gentle steering while driving - real turns are always pulses
+        lim = C.STEER_MAX * v
+        w = max(-lim, min(lim, C.STEER_GAIN * err)) * self.turn_sign
         return ("drive", int(v - w), int(v + w), C.DRIVE_MS)
 
     def _turn_pulse(self, err):
