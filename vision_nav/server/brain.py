@@ -403,7 +403,8 @@ class Brain:
         """Polyline mode: aim straight at the next corner of the planned path."""
         p = self.path
         for q in p[1:]:
-            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > 6:
+            # skip tiny kinks: aiming at a corner a few cm away makes the robot turn for nothing
+            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > C.CORNER_SKIP:
                 return q
         return p[-1]
 

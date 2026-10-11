@@ -74,6 +74,7 @@ MAP_HITS = 3                    # echoes in one cell before it counts as an obst
 EDGE_IGNORE = 15.0              # cm: echoes this close to the arena edge are people/walls outside, ignored
 FREE_RANGE = 80.0               # sonar ray is free space up to this far
 REPLAN_S = 0.5
+CORNER_SKIP = 15.0              # cm: path corners closer than this are not aimed at
 
 # Settings the console may change live (name: (min, max))
 TUNABLE = {
