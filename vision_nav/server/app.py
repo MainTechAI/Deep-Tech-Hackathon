@@ -176,6 +176,8 @@ async def handle_console_msg(m):
             lo, hi = C.TUNABLE[k]
             v = max(lo, min(hi, float(m["value"])))
             setattr(C, k, int(v) if isinstance(getattr(C, k), int) else v)
+            if k == "ROBOT_RADIUS":
+                brain.grid._changed()     # re-inflate obstacles and re-plan
             brain.log(f"{k} = {getattr(C, k)}")
     elif t == "arena_auto":
         brain.cmd_arena_auto()

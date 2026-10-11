@@ -37,12 +37,13 @@ class Grid:
         self.version += 1
         self._inflated = None
 
-    def add_hit(self, x, y):
+    def add_hit(self, x, y, force=False):
+        """force: a sure obstacle (very close echo, robot stuck) - also counted at the arena edge."""
         k = self.cell_of(x, y)
         if not self.inside(*k):
             return False
         e = C.EDGE_IGNORE     # the fence keeps the robot off the edge anyway; echoes there are outside things
-        if x < e or y < e or x > self.w_cm - e or y > self.h_cm - e:
+        if not force and (x < e or y < e or x > self.w_cm - e or y > self.h_cm - e):
             return False
         before = self.hits.get(k, 0)
         self.hits[k] = min(5, before + 1)
@@ -83,10 +84,12 @@ class Grid:
     def inflated(self):
         """Cells the robot centre must not enter: obstacles grown by the robot radius."""
         if self._inflated is None:
-            r = int(math.ceil(C.ROBOT_RADIUS / self.cell))
+            # cells whose centre is within ROBOT_RADIUS of the obstacle cell's centre
+            rc = C.ROBOT_RADIUS / self.cell
+            r = int(math.ceil(rc))
             blocked = set()
             offs = [(di, dj) for di in range(-r, r + 1) for dj in range(-r, r + 1)
-                    if di * di + dj * dj <= r * r]
+                    if di * di + dj * dj <= rc * rc]
             for (i, j) in self.occupied():
                 for di, dj in offs:
                     blocked.add((i + di, j + dj))
@@ -111,6 +114,22 @@ class Grid:
             t = s / n
             if not self.free(self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)):
                 return False
+        return True
+
+    def path_free(self, pts):
+        """Is a route (cm points) still clear of inflated obstacles? The first 15 cm are not
+        checked: the robot itself may already be inside an inflated zone."""
+        skip = 15.0
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            L = math.hypot(x1 - x0, y1 - y0)
+            n = int(L / (self.cell / 2)) + 1
+            for s in range(n + 1):
+                d = L * s / n
+                if skip > 0 and d < skip:
+                    continue
+                if not self.free(self.cell_of(x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n)):
+                    return False
+            skip -= L
         return True
 
     def nearest_free(self, k, max_r=8):

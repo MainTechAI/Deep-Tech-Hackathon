@@ -77,6 +77,7 @@ class Brain:
         self.backoff_until = 0.0
         self.turn_state = None        # running turn pulse: th0, dir, t_end, until
         self.wrong_turns = 0
+        self.aligning = False         # turning on the spot until within ALIGN_DEG
         self.events = []              # messages for the console log
 
     # ------------------------------------------------------------ inputs
@@ -182,7 +183,8 @@ class Brain:
             self.grid.add_free_ray(sx, sy, sx + free_to * math.cos(a), sy + free_to * math.sin(a))
         turning = abs(d.get("l", 0) - d.get("r", 0)) > 30   # the cone sweeps everything around
         if dist < C.OBSTACLE_RANGE and not turning:
-            if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a)):
+            close = dist < C.STOP_CM + 5          # right in front: certainly real
+            if self.grid.add_hit(sx + dist * math.cos(a), sy + dist * math.sin(a), force=close):
                 self.log(f"obstacle mapped at {dist:.0f} cm ahead")
 
     def robot_online(self):
@@ -283,7 +285,14 @@ class Brain:
         # (re)plan when the map changed, the target moved, or periodically
         if (self.path is None or self.plan_version != self.grid.version
                 or t - self.plan_t > C.REPLAN_S):
-            self.path = self.grid.plan((self.robot.x, self.robot.y), target)
+            new = self.grid.plan((self.robot.x, self.robot.y), target)
+            # keep the current route as long as no obstacle blocks it - otherwise two similar
+            # routes around a box take turns and the robot turns back and forth between them
+            if self.path:
+                cur = self._remaining_path(target)
+                if cur and self.grid.path_free(cur):
+                    new = cur
+            self.path = new
             self.plan_t = t
             self.plan_version = self.grid.version
             if self.path is None:
@@ -314,7 +323,7 @@ class Brain:
                 a = math.radians(self.robot.th + da)
                 r = C.ROBOT_RADIUS + 3
                 for _ in range(C.MAP_HITS):
-                    self.grid.add_hit(self.robot.x + r * math.cos(a), self.robot.y + r * math.sin(a))
+                    self.grid.add_hit(self.robot.x + r * math.cos(a), self.robot.y + r * math.sin(a), force=True)
             self.backoff_until = t + 0.6
             self.log("stuck - marked an obstacle in front, backing off")
         self.progress = (t, self.robot.x, self.robot.y)
@@ -357,12 +366,40 @@ class Brain:
             cx, cy = bx, by
         return p[-1]
 
+    def _remaining_path(self, target):
+        """The current route from where the robot is now, ending at the current target."""
+        p = self.path
+        i = next((k for k in range(1, len(p))
+                  if math.hypot(p[k][0] - self.robot.x, p[k][1] - self.robot.y) > 6), None)
+        if i is None:
+            return None
+        rest = [(self.robot.x, self.robot.y)] + [tuple(q) for q in p[i:]]
+        if math.hypot(rest[-1][0] - target[0], rest[-1][1] - target[1]) > 10:
+            return None      # the target moved (follow mode): take the new route
+        return rest
+
+    def _next_corner(self):
+        """Polyline mode: aim straight at the next corner of the planned path."""
+        p = self.path
+        for q in p[1:]:
+            if math.hypot(q[0] - self.robot.x, q[1] - self.robot.y) > 6:
+                return q
+        return p[-1]
+
     def _follow_path(self, dist_goal):
-        lx, ly = self._lookahead()
+        lx, ly = self._next_corner() if C.STEER_GAIN <= 0 else self._lookahead()
         want = math.degrees(math.atan2(ly - self.robot.y, lx - self.robot.x))
         err = G.wrap(want - self.robot.th)       # + = target is to the left
+        # polyline driving: when off by more than TURN_IN_PLACE_DEG, stop and turn in pulses
+        # until within ALIGN_DEG, then drive straight again
+        ts = self.turn_state
+        settled = ts is None or now() >= ts["until"]
         if abs(err) > C.TURN_IN_PLACE_DEG:
-            return self._turn_pulse(err)
+            self.aligning = True
+        if self.aligning:
+            if not (settled and abs(err) <= C.ALIGN_DEG):
+                return self._turn_pulse(err)
+            self.aligning = False
         self.turn_state = None
         self.status = "driving"
         v = C.CRUISE if dist_goal > 40 else max(C.CRUISE_MIN, C.CRUISE * dist_goal / 40)
@@ -393,7 +430,7 @@ class Brain:
                 else:
                     self.wrong_turns = 0
         d = 1 if err > 0 else -1                     # +1 = turn left (counter-clockwise)
-        ms = int(max(60, min(C.TURN_PULSE_MS, abs(err) * 3)))
+        ms = int(min(C.TURN_PULSE_MS, max(40, abs(err) * 3)))
         self.turn_state = {"th0": self.robot.th, "dir": d, "t_end": t + ms / 1000,
                            "until": t + (ms + C.TURN_SETTLE_MS) / 1000}
         S = int(C.TURN_SPEED)
