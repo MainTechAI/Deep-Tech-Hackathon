@@ -55,9 +55,10 @@ DRIVE_MS = 400                  # every drive command expires after this (robot 
 CRUISE = 55                     # % forward speed
 CRUISE_MIN = 35                 # % near the goal
 TURN_SPEED = 45                 # % for turning on the spot
-TURN_IN_PLACE_DEG = 35          # heading error above which the robot turns on the spot
+TURN_IN_PLACE_DEG = 50          # heading error above which the robot stops and turns (else: arcs)
 STEER_GAIN = 0.6                # % wheel difference per degree of heading error
-TURN_PULSE_MS = 150             # on-the-spot turns are pulses (turn, stop, look) of at most this
+TURN_PULSE_MS = 120             # on-the-spot turns are pulses (turn, stop, look) of at most this
+TURN_PIVOT = 1                  # 1: turn around one wheel (smooth), 0: spin on the spot (sharp)
 TURN_SETTLE_MS = 350            # after a pulse: wait this long for the camera to see the result
 TRIM = 0.0                      # %: + weakens the left wheel (robot pulls right), - the right
 MOTION_POSE_AGE = 0.3           # s: with an older camera pose the robot waits instead of driving blind
@@ -74,6 +75,6 @@ REPLAN_S = 0.5
 TUNABLE = {
     "CRUISE": (15, 100), "CRUISE_MIN": (10, 100), "TURN_SPEED": (15, 100),
     "STEER_GAIN": (0.0, 3.0), "TURN_IN_PLACE_DEG": (10, 90), "TURN_PULSE_MS": (40, 600),
-    "TURN_SETTLE_MS": (0, 1500), "OBSTACLE_RANGE": (10, 150), "MAP_HITS": (1, 5),
+    "TURN_SETTLE_MS": (0, 1500), "TURN_PIVOT": (0, 1), "OBSTACLE_RANGE": (10, 150), "MAP_HITS": (1, 5),
     "LOOKAHEAD": (5, 80), "GOAL_TOL": (3, 40), "FOLLOW_DIST": (20, 150), "TRIM": (-30, 30),
 }

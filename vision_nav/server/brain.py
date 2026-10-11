@@ -394,8 +394,11 @@ class Brain:
         ms = int(max(60, min(C.TURN_PULSE_MS, abs(err) * 3)))
         self.turn_state = {"th0": self.robot.th, "dir": d, "t_end": t + ms / 1000,
                            "until": t + (ms + C.TURN_SETTLE_MS) / 1000}
-        s = int(C.TURN_SPEED) * self.turn_sign
-        return ("drive", -s, s, ms) if d > 0 else ("drive", s, -s, ms)
+        S = int(C.TURN_SPEED)
+        left = (d > 0) == (self.turn_sign > 0)       # physical direction
+        if C.TURN_PIVOT >= 0.5:                      # around one wheel: half the speed, no jerk
+            return ("drive", 0, S, ms) if left else ("drive", S, 0, ms)
+        return ("drive", -S, S, ms) if left else ("drive", S, -S, ms)
 
     def _calibrate_step(self):
         c = self.calib
