@@ -1,0 +1,23 @@
+# Host networking: the app listens on 127.0.0.1:8080 (behind Caddy) and 0.0.0.0:9000
+# (robot TCP); Caddy serves HTTPS on 443 and gets the certificate via port 80.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    network_mode: host
+    env_file: ../server/.env
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

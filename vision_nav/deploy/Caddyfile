@@ -1,0 +1,7 @@
+coolrover.online {
+	reverse_proxy 127.0.0.1:8080
+}
+
+www.coolrover.online {
+	redir https://coolrover.online{uri} permanent
+}

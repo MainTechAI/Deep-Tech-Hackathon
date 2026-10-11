@@ -1,0 +1,195 @@
+"""Occupancy grid of the arena + A* path planning around known obstacles."""
+import heapq
+import math
+
+import config as C
+
+
+class Grid:
+    def __init__(self, w_cm, h_cm, cell=C.GRID_CM):
+        self.cell = cell
+        self.resize(w_cm, h_cm)
+
+    def resize(self, w_cm, h_cm):
+        self.w_cm, self.h_cm = w_cm, h_cm
+        self.nx = int(math.ceil(w_cm / self.cell))
+        self.ny = int(math.ceil(h_cm / self.cell))
+        self.hits = {}         # (i, j) -> evidence 0..5, sonar
+        self.walls = set()     # (i, j) drawn by hand, permanent
+        self.version = 0
+        self._inflated = None
+
+    # ---- coordinates ----
+    def cell_of(self, x, y):
+        return int(x // self.cell), int(y // self.cell)
+
+    def centre_of(self, i, j):
+        return (i + 0.5) * self.cell, (j + 0.5) * self.cell
+
+    def inside(self, i, j):
+        return 0 <= i < self.nx and 0 <= j < self.ny
+
+    # ---- map updates ----
+    def occupied(self):
+        return self.walls | {k for k, v in self.hits.items() if v >= 2}
+
+    def _changed(self):
+        self.version += 1
+        self._inflated = None
+
+    def add_hit(self, x, y):
+        k = self.cell_of(x, y)
+        if not self.inside(*k):
+            return False
+        before = self.hits.get(k, 0)
+        self.hits[k] = min(5, before + 1)
+        if before < 2 <= self.hits[k]:
+            self._changed()
+            return True
+        return False
+
+    def add_free_ray(self, x0, y0, x1, y1):
+        """Sonar saw nothing along this segment: weaken obstacles on it."""
+        n = int(math.hypot(x1 - x0, y1 - y0) / (self.cell / 2)) + 1
+        changed = False
+        for s in range(n):
+            t = s / n
+            k = self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
+            v = self.hits.get(k)
+            if v:
+                self.hits[k] = v - 1
+                if v - 1 < 2 <= v:
+                    changed = True
+                if self.hits[k] == 0:
+                    del self.hits[k]
+        if changed:
+            self._changed()
+
+    def toggle_wall(self, x, y):
+        k = self.cell_of(x, y)
+        if not self.inside(*k):
+            return
+        if k in self.walls or self.hits.get(k, 0) >= 2:
+            self.walls.discard(k)
+            self.hits.pop(k, None)
+        else:
+            self.walls.add(k)
+        self._changed()
+
+    def clear(self):
+        self.hits.clear()
+        self.walls.clear()
+        self._changed()
+
+    # ---- planning ----
+    def inflated(self):
+        """Cells the robot centre must not enter: obstacles grown by the robot radius."""
+        if self._inflated is None:
+            r = int(math.ceil(C.ROBOT_RADIUS / self.cell))
+            blocked = set()
+            offs = [(di, dj) for di in range(-r, r + 1) for dj in range(-r, r + 1)
+                    if di * di + dj * dj <= r * r]
+            for (i, j) in self.occupied():
+                for di, dj in offs:
+                    blocked.add((i + di, j + dj))
+            # virtual fence: keep the robot inside the arena
+            m = max(1, int(round(C.ROBOT_RADIUS / self.cell)) - 1)
+            for i in range(self.nx):
+                for j in list(range(m)) + list(range(self.ny - m, self.ny)):
+                    blocked.add((i, j))
+            for j in range(self.ny):
+                for i in list(range(m)) + list(range(self.nx - m, self.nx)):
+                    blocked.add((i, j))
+            self._inflated = blocked
+        return self._inflated
+
+    def free(self, k):
+        return self.inside(*k) and k not in self.inflated()
+
+    def line_free(self, a, b):
+        (x0, y0), (x1, y1) = self.centre_of(*a), self.centre_of(*b)
+        n = int(math.hypot(x1 - x0, y1 - y0) / (self.cell / 2)) + 1
+        for s in range(n + 1):
+            t = s / n
+            if not self.free(self.cell_of(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)):
+                return False
+        return True
+
+    def nearest_free(self, k, max_r=8):
+        if self.free(k):
+            return k
+        for r in range(1, max_r + 1):
+            best = None
+            for di in range(-r, r + 1):
+                for dj in range(-r, r + 1):
+                    c = (k[0] + di, k[1] + dj)
+                    if max(abs(di), abs(dj)) == r and self.free(c):
+                        d = di * di + dj * dj
+                        if best is None or d < best[0]:
+                            best = (d, c)
+            if best:
+                return best[1]
+        return None
+
+    def plan(self, start_xy, goal_xy):
+        """List of (x, y) cm waypoints from start to goal, or None if unreachable.
+        The start may be inside an inflated zone (robot already close to something)."""
+        s = self.cell_of(*start_xy)
+        g = self.nearest_free(self.cell_of(*goal_xy))
+        if g is None or not self.inside(*s):
+            return None
+        blocked = self.inflated()
+        occupied = self.occupied()
+        # allow leaving the inflated area around the start
+        escape = set()
+        if s in blocked:
+            for di in range(-4, 5):
+                for dj in range(-4, 5):
+                    escape.add((s[0] + di, s[1] + dj))
+
+        def ok(k):
+            return self.inside(*k) and (k not in blocked or (k in escape and k not in occupied))
+
+        moves = [(1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1),
+                 (1, 1, 1.414), (1, -1, 1.414), (-1, 1, 1.414), (-1, -1, 1.414)]
+        h = lambda k: math.hypot(k[0] - g[0], k[1] - g[1])
+        openq = [(h(s), 0.0, s)]
+        came = {s: None}
+        cost = {s: 0.0}
+        while openq:
+            _, c, k = heapq.heappop(openq)
+            if k == g:
+                break
+            if c > cost.get(k, 1e9):
+                continue
+            for di, dj, w in moves:
+                n = (k[0] + di, k[1] + dj)
+                if not ok(n):
+                    continue
+                nc = c + w
+                if nc < cost.get(n, 1e9):
+                    cost[n] = nc
+                    came[n] = k
+                    heapq.heappush(openq, (nc + h(n), nc, n))
+        if g not in came:
+            return None
+        cells = []
+        k = g
+        while k is not None:
+            cells.append(k)
+            k = came[k]
+        cells.reverse()
+        # string pulling: keep only the corners we actually need
+        out = [cells[0]]
+        i = 0
+        while i < len(cells) - 1:
+            j = len(cells) - 1
+            while j > i + 1 and not self.line_free(cells[i], cells[j]):
+                j -= 1
+            out.append(cells[j])
+            i = j
+        pts = [self.centre_of(*c) for c in out]
+        pts[0] = tuple(start_xy)
+        if self.cell_of(*goal_xy) == g:
+            pts[-1] = tuple(goal_xy)
+        return pts
