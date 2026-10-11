@@ -419,7 +419,10 @@ class Brain:
         if abs(err) > C.TURN_IN_PLACE_DEG:
             self.aligning = True
         if self.aligning:
-            if not (settled and abs(err) <= C.ALIGN_DEG):
+            # good enough: within ALIGN_DEG, or the last pulse overshot past the target
+            # direction and we're within the stop-and-turn limit - no endless fine-tuning
+            overshot = ts is not None and (err > 0) != (ts["dir"] > 0) and abs(err) <= C.TURN_IN_PLACE_DEG
+            if not (settled and (abs(err) <= C.ALIGN_DEG or overshot)):
                 return self._turn_pulse(err)
             self.aligning = False
         self.turn_state = None
